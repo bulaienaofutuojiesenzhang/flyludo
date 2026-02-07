@@ -10,7 +10,7 @@ class DailyFortune extends React.Component {
     super(props);
     const today = new Date().toDateString();
     const savedDate = null; // 可以从AsyncStorage读取
-    
+
     this.state = {
       hasChecked: savedDate === today,
       fortune: null,
@@ -50,17 +50,18 @@ class DailyFortune extends React.Component {
     // 使用今天的日期作为随机种子，确保同一天结果相同
     const today = new Date();
     const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-    
+
     // 简单的伪随机数生成器
     const random = (max) => {
       const x = Math.sin(seed) * 10000;
       return Math.floor((x - Math.floor(x)) * max);
     };
 
-    // 从卦象数据中随机选择一个
-    const guaIndex = random(suangua.length);
-    const selectedGua = suangua[guaIndex];
-    
+    // 从卦象数据中随机选择一个（目前指定为上上签）
+    const topFavorable = suangua.filter(item => item.shangxia === '上上签');
+    const guaIndex = random(topFavorable.length);
+    const selectedGua = topFavorable[guaIndex];
+
     // 构建运势数据
     const fortune = {
       name: selectedGua.name,
@@ -88,7 +89,7 @@ class DailyFortune extends React.Component {
     }).start();
 
     setTimeout(() => {
-      this.setState({ 
+      this.setState({
         fortune,
         hasChecked: true,
         isRevealing: false,
@@ -102,11 +103,11 @@ class DailyFortune extends React.Component {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="white" />
-        
+
         {/* 顶部导航 */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
+          <TouchableOpacity
+            style={styles.backBtn}
             onPress={() => this.props.navigation.goBack()}
           >
             <Icons name="left" size={24} color="#333" />
@@ -120,9 +121,9 @@ class DailyFortune extends React.Component {
             {/* 日期显示 */}
             <View style={styles.dateSection}>
               <Text style={styles.dateText}>
-                {new Date().toLocaleDateString('zh-CN', { 
-                  year: 'numeric', 
-                  month: 'long', 
+                {new Date().toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: 'long',
                   day: 'numeric',
                   weekday: 'long'
                 })}
@@ -148,7 +149,7 @@ class DailyFortune extends React.Component {
                       <Text style={styles.signText}>{fortune.shangxia}</Text>
                     </View>
                   </View>
-                  
+
                   {/* 卦辞 */}
                   <View style={styles.guaSection}>
                     <Text style={styles.guaLabel}>卦象</Text>
