@@ -4,12 +4,14 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  FlatList,
   Image,
   SafeAreaView,
   StatusBar,
   Alert,
   Linking,
   View as RNView,
+  InteractionManager,
 } from 'react-native';
 import { View, Toast } from 'native-base';
 import Icon from 'react-native-vector-icons/AntDesign';
@@ -17,6 +19,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { connect } from 'react-redux';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { WebView } from 'react-native-webview';
+import FastImage from 'react-native-fast-image';
 
 import { Loading } from '../../component';
 import { Colors } from '../../theme';
@@ -28,10 +31,12 @@ import {
   normalizeLocalImageUri,
 } from '../../utils/PermissionHelper';
 
-const SCENES_CACHE_KEY = 'AI_SCENES_CACHE_V1';
+const SCENES_CACHE_KEY = 'AI_SCENES_CACHE_V2';
 const SCENES_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SCENES_SOFT_REFRESH_MS = 6 * 60 * 60 * 1000;
 const ACCENT = Colors.subject;
+/** 场景缩略图只渲染可见窗口，避免进页一次解码几十张大图 */
+const SCENE_ITEM_W = 90;
 
 const AI_CONFIG = {
   clothesSwap: {
@@ -95,12 +100,18 @@ class AiTool extends Component {
   }
 
   componentDidMount() {
-    if (this.cfg.needScene) this.loadScenes();
-    if (this.cfg.needMethod) this.loadClothesStyles();
+    // 等页面转场动画结束后再拉场景，避免进页瞬间卡死
+    this._interactionTask = InteractionManager.runAfterInteractions(() => {
+      if (this.cfg.needScene) this.loadScenes();
+      if (this.cfg.needMethod) this.loadClothesStyles();
+    });
   }
 
   componentWillUnmount() {
     this.clearPoll();
+    if (this._interactionTask && this._interactionTask.cancel) {
+      this._interactionTask.cancel();
+    }
   }
 
   clearPoll = () => {
@@ -112,11 +123,21 @@ class AiTool extends Component {
 
   getYuanbao = () => Number(this.props.user?.yuanbao) || 0;
 
+  /** 缓存只留列表渲染必要字段，减小 JSON 解析卡顿 */
+  slimScenes = (list) =>
+    (list || []).map((s) => ({
+      id: s.id,
+      name: s.name || '',
+      sceneName: s.sceneName || s.name || '',
+      preview: s.preview || '',
+      type: s.type || '',
+    }));
+
   saveScenesCache = async (list) => {
     try {
       await AsyncStorage.setItem(
         SCENES_CACHE_KEY,
-        JSON.stringify({ list, at: Date.now() })
+        JSON.stringify({ list: this.slimScenes(list), at: Date.now() })
       );
     } catch (_) {}
   };
@@ -136,10 +157,25 @@ class AiTool extends Component {
     }
   };
 
+  preloadSceneImages = (list) => {
+    try {
+      const sources = (list || [])
+        .map((s) => s && s.preview)
+        .filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u))
+        .slice(0, 12)
+        .map((uri) => ({
+          uri,
+          priority: FastImage.priority.low,
+        }));
+      if (sources.length) FastImage.preload(sources);
+    } catch (_) {}
+  };
+
   loadScenes = async () => {
     const cached = await this.readScenesCache();
     if (cached?.list?.length) {
       this.setState({ scenes: cached.list, scenesLoading: false });
+      this.preloadSceneImages(cached.list);
       if (cached.age < SCENES_SOFT_REFRESH_MS) return;
     } else {
       this.setState({ scenesLoading: true });
@@ -147,8 +183,10 @@ class AiTool extends Component {
     try {
       const res = await Http('post', '/ai-proxy/ai/scenes', {});
       if (res.code === 200 && res.data?.list) {
-        this.setState({ scenes: res.data.list });
-        await this.saveScenesCache(res.data.list);
+        const list = this.slimScenes(res.data.list);
+        this.setState({ scenes: list });
+        await this.saveScenesCache(list);
+        this.preloadSceneImages(list);
       }
     } catch (e) {}
     this.setState({ scenesLoading: false });
@@ -367,21 +405,24 @@ class AiTool extends Component {
     if (resultUrl) Linking.openURL(resultUrl).catch(() => {});
   };
 
-  renderSceneItem(item) {
+  renderSceneItem = ({ item }) => {
     const { sceneSel } = this.state;
     const active = sceneSel && sceneSel.id === item.id;
     return (
       <TouchableOpacity
-        key={item.id}
         style={[Styles.sceneItem, active && Styles.sceneItemActive]}
         onPress={() => this.setState({ sceneSel: item })}
         activeOpacity={0.8}
       >
         {item.preview ? (
-          <Image
-            source={{ uri: item.preview }}
+          <FastImage
+            source={{
+              uri: item.preview,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
             style={Styles.sceneImg}
-            resizeMode="cover"
+            resizeMode={FastImage.resizeMode.cover}
           />
         ) : (
           <View style={[Styles.sceneImg, Styles.sceneImgEmpty]}>
@@ -401,7 +442,9 @@ class AiTool extends Component {
         ) : null}
       </TouchableOpacity>
     );
-  }
+  };
+
+  sceneKeyExtractor = (item) => String(item.id || item.sceneName);
 
   renderStyleItem(item) {
     const { styleSel } = this.state;
@@ -528,13 +571,23 @@ class AiTool extends Component {
               {scenesLoading ? (
                 <Text style={Styles.sceneLoadingTxt}>场景加载中...</Text>
               ) : scenes.length ? (
-                <ScrollView
+                <FlatList
                   horizontal
+                  data={scenes}
+                  keyExtractor={this.sceneKeyExtractor}
+                  renderItem={this.renderSceneItem}
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={Styles.sceneList}
-                >
-                  {scenes.map((item) => this.renderSceneItem(item))}
-                </ScrollView>
+                  initialNumToRender={6}
+                  maxToRenderPerBatch={4}
+                  windowSize={5}
+                  removeClippedSubviews
+                  getItemLayout={(_, index) => ({
+                    length: SCENE_ITEM_W + 10,
+                    offset: (SCENE_ITEM_W + 10) * index,
+                    index,
+                  })}
+                />
               ) : (
                 <Text style={Styles.sceneLoadingTxt}>暂无可用场景</Text>
               )}
@@ -647,7 +700,7 @@ const Styles = StyleSheet.create({
   },
   sceneList: { paddingVertical: 2 },
   sceneItem: {
-    width: 90,
+    width: SCENE_ITEM_W,
     marginRight: 10,
     backgroundColor: '#FFF',
     borderRadius: 12,
