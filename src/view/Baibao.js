@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   StatusBar,
   Text,
-  Alert,
   View,
   Platform,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { connect } from 'react-redux';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
+import { AppDialog } from '../component';
 import { Metrics } from '../theme';
 
 const CARD_GAP = 10;
@@ -82,18 +82,19 @@ class Baibao extends React.Component {
     },
   ];
 
-  ensureLogin = (onOk) => {
+  ensureLogin = async (onOk) => {
     if (this.props.isLogged) {
       onOk();
       return;
     }
-    Alert.alert('提示', '请先登录后再使用 AI 功能', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '去登录',
-        onPress: () => this.props.navigation.navigate('Login'),
-      },
-    ]);
+    const go = await AppDialog.confirm({
+      title: '先登录一下',
+      message: '登录后就能体验 AI 玩法啦，马上开聊开玩。',
+      type: 'permission',
+      cancelText: '再看看',
+      confirmText: '去登录',
+    });
+    if (go) this.props.navigation.navigate('Login');
   };
 
   onGamePress = (game) => {

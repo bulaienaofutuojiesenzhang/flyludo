@@ -1,7 +1,7 @@
 import { DeviceEventEmitter } from 'react-native';
 import Config from '../config/index';
 import qs from 'qs';
-import { Toast } from 'native-base'; 
+import { ToastService } from '../component';
 import AsyncStorage from './AsyncStorage';
 import md5 from 'md5';
 import { Platform } from "react-native";
@@ -94,11 +94,17 @@ export default async (type = 'GET', uri, data, ismd5 ) => {
 		Config.Env === 'dev' && console.info('开始时间',startTime,'结束时间：', endTime,'用时：', endTime-startTime);
 		Config.Env === 'dev' && console.info();
 		if(responseJson && responseJson.code == 'Unauthorized'){
-			Toast.show({ title: responseJson.msg || responseJson.data.msg, placement: "top"});
+			ToastService.showToast({
+				title: responseJson.msg || responseJson.data?.msg || '请重新登录',
+				type: 'error',
+			});
 			DeviceEventEmitter.emit("toLogin");
 		} else if (responseJson && responseJson.code != 200 ){
 			if (responseJson.message || responseJson.msg ) {
-				Toast.show({ title: responseJson.message || responseJson.msg || responseJson.data.message || responseJson.data.msg ,  placement: "top"});
+				ToastService.showToast({
+					title: responseJson.message || responseJson.msg || responseJson.data?.message || responseJson.data?.msg,
+					type: 'error',
+				});
 			}
 			
 		}

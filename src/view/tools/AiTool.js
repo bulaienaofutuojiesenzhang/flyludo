@@ -8,12 +8,11 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
-  Alert,
   Linking,
   View as RNView,
   InteractionManager,
 } from 'react-native';
-import { View, Toast } from 'native-base';
+import { View } from 'native-base';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { connect } from 'react-redux';
@@ -21,7 +20,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { WebView } from 'react-native-webview';
 import FastImage from 'react-native-fast-image';
 
-import { Loading } from '../../component';
+import { Loading, ToastService, AppDialog } from '../../component';
 import { Colors } from '../../theme';
 import Http from '../../utils/HttpPost';
 import AsyncStorage from '../../utils/AsyncStorage';
@@ -223,10 +222,7 @@ class AiTool extends Component {
   pickAsset = async () => {
     const hasPermission = await requestMediaPermission();
     if (!hasPermission) {
-      Toast.show({
-        title: '需要相册权限才能选择图片',
-        placement: 'top',
-      });
+      ToastService.warn('需要相册权限才能选择图片');
       return;
     }
 
@@ -241,20 +237,18 @@ class AiTool extends Component {
       (response) => {
         if (response.didCancel) return;
         if (response.errorCode) {
-          Toast.show({
-            title:
-              response.errorCode === 'permission'
-                ? '请在系统设置中允许访问相册'
-                : response.errorMessage || '无法打开相册',
-            placement: 'top',
-          });
+          ToastService.warn(
+            response.errorCode === 'permission'
+              ? '请在系统设置中允许访问相册'
+              : response.errorMessage || '无法打开相册'
+          );
           return;
         }
         const asset = response.assets && response.assets[0];
         const rawUri = asset && (asset.fileCopyUri || asset.uri);
         const uri = normalizeLocalImageUri(rawUri);
         if (!uri) {
-          Toast.show({ title: '未获取到图片，请重试', placement: 'top' });
+          ToastService.warn('未获取到图片，请重试');
           return;
         }
         this.setState({
@@ -273,28 +267,28 @@ class AiTool extends Component {
     );
   };
 
-  submitFunc = () => {
+  submitFunc = async () => {
     const { sourceAsset, sceneSel, styleSel } = this.state;
     if (!sourceAsset) {
-      Toast.show({ title: '请先选择素材照片', placement: 'top' });
+      ToastService.warn('请先选择素材照片');
       return;
     }
     if (this.cfg.needScene && !sceneSel) {
-      Toast.show({ title: '请选择场景', placement: 'top' });
+      ToastService.warn('请选择场景');
       return;
     }
     if (this.cfg.needMethod && !styleSel) {
-      Toast.show({ title: '请选择换衣风格', placement: 'top' });
+      ToastService.warn('请选择换衣风格');
       return;
     }
-    Alert.alert(
-      '扣费确认',
-      `本次${this.cfg.title}将消耗 ${this.cfg.cost} 钻石，当前余额 ${this.getYuanbao()} 钻石。`,
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '确认支付', onPress: () => this.doSubmitFunc() },
-      ]
-    );
+    const ok = await AppDialog.confirm({
+      title: '确认消耗钻石',
+      message: `本次${this.cfg.title}将消耗 ${this.cfg.cost} 钻石，当前余额 ${this.getYuanbao()} 钻石。`,
+      type: 'diamond',
+      cancelText: '再想想',
+      confirmText: '确认支付',
+    });
+    if (ok) this.doSubmitFunc();
   };
 
   doSubmitFunc = async () => {
@@ -317,29 +311,19 @@ class AiTool extends Component {
           this.props.setUserInfo({ yuanbao: nextYb });
         }
         this.setState({ processing: true });
-        Toast.show({ title: '支付成功,任务处理中...', placement: 'top' });
+        ToastService.success('支付成功，任务处理中...');
         this.startPoll(res.data.taskId);
       } else if (res.code === 600 || res.code === 3001) {
-        Alert.alert(
-          '钻石余额不足',
-          `本次${this.cfg.title}需要 ${this.cfg.cost} 钻石，请先充值。`,
-          [
-            { text: '取消', style: 'cancel' },
-            {
-              text: '去充值',
-              onPress: () => this.props.navigation.push('Diamond'),
-            },
-          ]
-        );
-      } else {
-        Toast.show({
-          title: res.message || res.msg || '提交失败',
-          placement: 'top',
+        const go = await AppDialog.diamondInsufficient({
+          message: `本次${this.cfg.title}需要 ${this.cfg.cost} 钻石，充值后就能继续玩。`,
         });
+        if (go) this.props.navigation.push('Diamond');
+      } else {
+        ToastService.error(res.message || res.msg || '提交失败');
       }
     } catch (e) {
       this.setState({ isLoading: false });
-      Toast.show({ title: e.message || '提交失败', placement: 'top' });
+      ToastService.error(e.message || '提交失败');
     }
   };
 
@@ -351,7 +335,7 @@ class AiTool extends Component {
       if (count > 180) {
         this.clearPoll();
         this.setState({ processing: false });
-        Toast.show({ title: '处理超时,请稍后重试', placement: 'top' });
+        ToastService.warn('处理超时，请稍后重试');
         return;
       }
       try {
@@ -366,13 +350,10 @@ class AiTool extends Component {
                 processing: false,
                 resultUrl: res.data.resultUrl,
               });
-              Toast.show({ title: '生成完成!', placement: 'top' });
+              ToastService.success('生成完成！');
             } else {
               this.setState({ processing: false });
-              Toast.show({
-                title: '任务完成但未获取到结果',
-                placement: 'top',
-              });
+              ToastService.warn('任务完成但未获取到结果');
             }
           } else if (res.data.status === 'failed') {
             this.clearPoll();
@@ -384,15 +365,9 @@ class AiTool extends Component {
                   ? res.data.yuanbao
                   : this.getYuanbao() + this.cfg.cost;
               this.props.setUserInfo({ yuanbao: nextYb });
-              Toast.show({
-                title: '生成失败,钻石已退回',
-                placement: 'top',
-              });
+              ToastService.diamond('生成失败，钻石已退回');
             } else {
-              Toast.show({
-                title: '生成失败,请更换素材重试',
-                placement: 'top',
-              });
+              ToastService.error('生成失败，请更换素材重试');
             }
           }
         }

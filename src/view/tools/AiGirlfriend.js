@@ -10,13 +10,12 @@ import {
   BackHandler,
   SafeAreaView,
 } from 'react-native';
-import { Toast } from 'native-base';
 import { WebView } from 'react-native-webview';
 import { connect } from 'react-redux';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import { Loading } from '../../component';
+import { Loading, ToastService } from '../../component';
 import { Colors } from '../../theme';
 import Http from '../../utils/HttpPost';
 
@@ -151,12 +150,9 @@ class AiGirlfriend extends Component {
             res.data.spentYuanbao || res.data.spentZuanshi || 0;
           const settled = !!(res.data.settled || res.data.settledLocal);
           if (settled && spent > 0) {
-            Toast.show({
-              title: `本次消费 ${spent} 钻石`,
-              placement: 'top',
-            });
+            ToastService.diamond(`本次消费 ${spent} 钻石`);
           } else if (settled) {
-            Toast.show({ title: '本次未产生消费', placement: 'top' });
+            ToastService.showToast({ title: '本次未产生消费' });
           }
           if (res.data.yuanbao != null) {
             this.props.setUserInfo({ yuanbao: res.data.yuanbao });

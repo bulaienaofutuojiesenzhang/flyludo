@@ -1,6 +1,7 @@
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AppDialog from '../component/AppDialog';
 
 /**
  * 真正向系统申请相册读权限
@@ -16,10 +17,8 @@ async function requestSystemMediaPermission() {
       );
     }
 
-    // Android 13+ (API 33)
     if (Platform.Version >= 33) {
       const img = await request(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
-      // 场景视频只需图片；顺带申请视频权限不影响
       if (img !== RESULTS.GRANTED) return false;
       try {
         await request(PERMISSIONS.ANDROID.READ_MEDIA_VIDEO);
@@ -36,35 +35,21 @@ async function requestSystemMediaPermission() {
 }
 
 /**
- * 业务入口：首次弹确认，再申请系统权限；之后直接申请/校验
+ * 业务入口：首次用统一弹窗确认，再申请系统权限
  */
 export const requestMediaPermission = async () => {
   try {
     const hasAgreed = await AsyncStorage.getItem('mediaPermissionRequested');
 
     if (!hasAgreed) {
-      return new Promise((resolve) => {
-        Alert.alert(
-          '权限申请',
-          '同城有约需要访问您的相册来选择图片，是否同意授权？',
-          [
-            {
-              text: '不同意',
-              style: 'cancel',
-              onPress: () => resolve(false),
-            },
-            {
-              text: '同意',
-              onPress: async () => {
-                await AsyncStorage.setItem('mediaPermissionRequested', 'true');
-                const ok = await requestSystemMediaPermission();
-                resolve(ok);
-              },
-            },
-          ],
-          { cancelable: false }
-        );
+      const ok = await AppDialog.permission({
+        title: '开启相册权限',
+        message:
+          '同城有约想访问你的相册，方便上传照片玩情侣飞行棋互动和 AI 玩法。仅用于你主动选择的内容。',
       });
+      if (!ok) return false;
+      await AsyncStorage.setItem('mediaPermissionRequested', 'true');
+      return await requestSystemMediaPermission();
     }
 
     return await requestSystemMediaPermission();
