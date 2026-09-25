@@ -381,11 +381,19 @@ class Root extends React.Component {
   // 处理更新按钮点击
   handleUpdatePress = () => {
     const { updateInfo } = this.state;
-    if (updateInfo && updateInfo.downloadUrl) {
-      Linking.openURL(updateInfo.downloadUrl).catch(err => 
+    const url = updateInfo && updateInfo.downloadUrl;
+    if (url) {
+      Linking.openURL(url).catch((err) =>
         console.error('打开下载链接失败:', err)
       );
+      return;
     }
+    // 无下载地址时给明确提示，避免强制更新卡死却点不动
+    Alert.alert(
+      '暂无下载地址',
+      '新版本下载链接尚未配置，请稍后再试或联系客服。',
+      [{ text: '知道了' }]
+    );
   };
 
   // 处理跳过更新（仅非强制更新可用）
