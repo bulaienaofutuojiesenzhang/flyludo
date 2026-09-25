@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, StatusBar, ImageBackground, Image, Text, Pressable } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, StatusBar, ImageBackground, Image, Text, Pressable, Linking } from 'react-native';
 import { View, Toast } from 'native-base';
 import Icons from 'react-native-vector-icons/AntDesign';
 import { connect } from 'react-redux';
@@ -10,6 +10,7 @@ import { Button, Icon } from 'react-native-elements';
 import { Loading, MyAlert } from '../component';
 import { Colors, Metrics } from '../theme';
 import Http from '../utils/HttpPost';
+import { isVipActive, getVipBadgeText } from '../utils/vip';
 
 class Users extends React.Component {
   constructor(props) {
@@ -30,6 +31,7 @@ class Users extends React.Component {
     this.unsubscribeFocus = this.props.navigation.addListener('focus', () => {
       // 页面获得焦点时更新状态栏样式
       StatusBar.setBackgroundColor('#fff');
+      this.refreshProfile();
     });
 
     this.unsubscribeBlur = this.props.navigation.addListener('blur', () => {
@@ -37,7 +39,15 @@ class Users extends React.Component {
       StatusBar.setBackgroundColor('#fff');
     });
 
-    // this.initFunc()
+    this.refreshProfile();
+  }
+
+  refreshProfile() {
+    Http('get', '/users/profile').then((res) => {
+      if (res?.code === 200 && res.data) {
+        this.props.setUserInfo(res.data);
+      }
+    }).catch(() => {});
   }
 
   initFunc() {
@@ -131,9 +141,22 @@ class Users extends React.Component {
               <View style={Styles.userNickCont}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={Styles.userNickText}>{this.props.user.name || '用户'}</Text>
+                  {isVipActive(this.props.user) ? (
+                    <Image source={require('../asserts/images/vip/vips.png')} style={Styles.vipBadgeImg} />
+                  ) : null}
                 </View>
                 <Text style={Styles.userPhone}>{this.props.user.account}</Text>
               </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={Styles.vipEntry}
+              onPress={() => this.props.navigation.navigate('Recharge')}
+            >
+              <Text style={Styles.vipEntryTitle}>
+                {isVipActive(this.props.user) ? getVipBadgeText(this.props.user) : '开通会员'}
+              </Text>
+              <Icons name="right" size={12} color="#8A4B00" />
             </TouchableOpacity>
           </View>
 
@@ -142,22 +165,38 @@ class Users extends React.Component {
         <View style={{ paddingHorizontal: 20 }}>
           {/* 位移主体 */}
           <View style={{ marginTop: -30 }}>
-            {/* 捐赠作者 */}
             <TouchableOpacity 
               style={Styles.donateCard}
-              onPress={() => this.setState({ showDonateModal: true })}
+              onPress={() => this.props.navigation.navigate('Diamond')}
             >
               <View style={Styles.donateContent}>
-                <Text style={Styles.donateIcon}>❤️</Text>
+                <Text style={Styles.donateIcon}>💎</Text>
                 <View style={Styles.donateTextContainer}>
-                  <Text style={Styles.donateTitle}>支持作者</Text>
-                  <Text style={Styles.donateSubtitle}>您的支持是我们前进的动力</Text>
+                  <Text style={Styles.donateTitle}>钻石充值</Text>
+                  <Text style={Styles.donateSubtitle}>
+                    余额 {this.props.user?.yuanbao || 0} 
+                  </Text>
                 </View>
               </View>
               <Icons name='right' style={Styles.donateArrow} />
             </TouchableOpacity>
             {/* 作品信息 - 列表模式 */}
             <View style={Styles.menuListContainer}>
+
+            <TouchableOpacity 
+                style={Styles.menuListItem} 
+                onPress={() => { Linking.openURL('https://daoyikeji.com') }}
+              >
+                <View style={Styles.menuListLeft}>
+                  <Image 
+                    style={Styles.menuListIcon} 
+                    source={require('../asserts/images/user/icon_mine_tab_work.png')} 
+                    resizeMode='contain' 
+                  />
+                  <Text style={Styles.menuListText}>官网网站</Text>
+                </View>
+                <Icons name='right' style={Styles.menuListArrow} />
+              </TouchableOpacity>
 
             <TouchableOpacity 
                 style={Styles.menuListItem} 
@@ -294,12 +333,44 @@ export default connect(mapStateToProps, mapDispatchToProps)(Users);
 
 const Styles = StyleSheet.create({
   userBackImg: { flex: 1, height: Metrics.px2dp(360) },
-  userContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingLeft: 20, marginTop: 50, },
-  userContentLeft: { flexDirection: "row", alignItems: "center", },
-  userNickCont: { marginLeft: 18 },
-  userNickText: { fontSize: 17, color: Colors.bai },
+  userContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingLeft: 20, paddingRight: 16, marginTop: 50, },
+  userContentLeft: { flexDirection: "row", alignItems: "center", flex: 1, paddingRight: 8 },
+  userNickCont: { marginLeft: 18, flexShrink: 1 },
+  vipEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFD700',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  vipEntryTitle: {
+    fontSize: 12,
+    color: '#8A4B00',
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  userNickText: { fontSize: 17, color: '#1A1A1A', fontWeight: '600' },
+  vipChip: {
+    marginLeft: 8,
+    backgroundColor: '#FFD700',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  vipChipText: {
+    fontSize: 11,
+    color: '#8A4B00',
+    fontWeight: '700',
+  },
+  vipBadgeImg: {
+    width: 36,
+    height: 18,
+    marginLeft: 8,
+    resizeMode: 'contain',
+  },
   userNickEditIcon: { width: 25, height: 25 },
-  userPhone: { fontSize: Metrics.fontSize12, marginTop: 6, color: Colors.bai },
+  userPhone: { fontSize: Metrics.fontSize12, marginTop: 6, color: '#555555' },
   headerPortrait: { width: Metrics.px2dp(150), height: Metrics.px2dp(150), borderRadius: Metrics.px2dp(150) },
   myHomeCont: { 
     flexDirection: 'row', 

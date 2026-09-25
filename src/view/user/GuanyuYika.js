@@ -10,7 +10,7 @@ export default class GuanyuYika extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            thislink: "http://tongchengyouyue.com/",
+            thislink: "https://daoyikeji.com/flyingchess",
             isLoading: false,
         }
     }

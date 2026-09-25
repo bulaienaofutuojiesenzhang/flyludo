@@ -33,6 +33,9 @@ import MyFocus from "./view/user/MyFocus";
 import InviteFriends from "./view/user/InviteFriends";
 import GuanyuYika from "./view/user/GuanyuYika";
 import Setting from "./view/user/Setting";
+import Recharge from "./view/user/Recharge";
+import Diamond from "./view/user/Diamond";
+import DiamondRecords from "./view/user/DiamondRecords";
 import Yonghuxieyi from "./view/user/Yonghuxieyi";
 import Yinsixieyi from "./view/user/Yinsixieyi";
 import CausMens from "./view/user/CausMens";
@@ -64,6 +67,11 @@ import DailyFortune from './view/tools/DailyFortune';
 import LuckyWheel from './view/tools/LuckyWheel';
 import QRCodeGenerator from './view/tools/QRCodeGenerator';
 import DeviceInfo from './view/tools/DeviceInfo';
+
+// AI 功能
+import FaceSwap from './view/tools/FaceSwap';
+import AiTool from './view/tools/AiTool';
+import AiGirlfriend from './view/tools/AiGirlfriend';
 
 
 export default [
@@ -542,6 +550,48 @@ export default [
   },
 
   {
+    name: 'Recharge',
+    screen: Recharge,
+    options: {
+      title: "会员中心",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'card',
+      animation: 'slide_from_right',
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
+    name: 'Diamond',
+    screen: Diamond,
+    options: {
+      title: "钻石充值",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: true,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
+    name: 'DiamondRecords',
+    screen: DiamondRecords,
+    options: {
+      title: "充值明细",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: true,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
     name: 'Yonghuxieyi',
     screen: Yonghuxieyi,
     options: {
@@ -967,6 +1017,46 @@ export default [
     screen: DeviceInfo,
     options: {
       title: "设备信息",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+    }
+  },
+
+  // AI 功能路由
+  {
+    name: 'FaceSwap',
+    screen: FaceSwap,
+    options: {
+      title: "AI换脸",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+    }
+  },
+
+  {
+    name: 'AiTool',
+    screen: AiTool,
+    options: {
+      title: "AI工具",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+    }
+  },
+
+  {
+    name: 'AiGirlfriend',
+    screen: AiGirlfriend,
+    options: {
+      title: "AI女友",
       headerShown: false,
       headerBackTitle: '',
       gestureEnabled: false,

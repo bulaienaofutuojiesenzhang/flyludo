@@ -76,8 +76,7 @@ class DareMode extends React.Component {
   // 升级会员
   handleUpgradeVip = () => {
     this.setState({ showVipModal: false });
-    // TODO: 跳转到会员购买页面
-    // this.props.navigation.navigate('VipPurchase');
+    this.props.navigation.navigate('Recharge');
   }
 
   render() {

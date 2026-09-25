@@ -93,8 +93,19 @@ npm i jetifier
 npx jetify
 
 
-#### 签名
-3f95ac28c6ade89874e3b7a2f512d2b5
+#### 签名（支付宝 Android 应用签名 / 证书 MD5）
+
+当前正式包与 `build.gradle` 里 debug/release **都使用** `android/app/tongchengyouyue.keystore`：
+
+| 用途 | keystore | 证书 MD5（无冒号小写） |
+|------|----------|------------------------|
+| **当前正式签名（支付宝须绑定这个）** | `tongchengyouyue.keystore` | `47ce1450fa1d95345bb906594bfe3e1d` |
+| RN 默认 debug.keystore（本工程未用于打包） | `debug.keystore` | `20f46148b72d8e5e5ca23d37a4f41490` |
+| 历史旧值（勿再绑支付宝） | 已废弃 | `3f95ac28c6ade89874e3b7a2f512d2b5` |
+
+包名：`com.jujin.tongchengyouyue`  
+支付宝 AppId：`2021006199697336`  
+若开放平台仍填旧 MD5 `3f95…`，唤起支付常会出现「订单参数异常」。
 
 #### 报错处理
 
