@@ -22,6 +22,10 @@ import { Loading } from '../../component';
 import { Colors } from '../../theme';
 import Http from '../../utils/HttpPost';
 import { uploadAiFile, getResultKind } from '../../utils/aiUpload';
+import {
+  requestMediaPermission,
+  normalizeLocalImageUri,
+} from '../../utils/PermissionHelper';
 
 const FACESWAP_COST = { image: 10, video: 100 };
 const ACCENT = Colors.subject;
@@ -61,12 +65,24 @@ class FaceSwap extends Component {
     this.setState({ mode, targetAsset: null, resultUrl: '' });
   };
 
-  pickAsset = (field, mediaType) => {
+  pickAsset = async (field, mediaType) => {
+    const hasPermission = await requestMediaPermission();
+    if (!hasPermission) {
+      Toast.show({
+        title: '需要相册权限才能选择素材',
+        placement: 'top',
+      });
+      return;
+    }
+
+    const isVideo = mediaType === 'video';
     launchImageLibrary(
       {
-        mediaType: mediaType === 'video' ? 'video' : 'photo',
+        mediaType: isVideo ? 'video' : 'photo',
         quality: 0.9,
         selectionLimit: 1,
+        maxWidth: isVideo ? undefined : 2048,
+        maxHeight: isVideo ? undefined : 2048,
       },
       (response) => {
         if (response.didCancel) return;
@@ -81,8 +97,28 @@ class FaceSwap extends Component {
           return;
         }
         const asset = response.assets && response.assets[0];
-        if (!asset?.uri) return;
-        this.setState({ [field]: asset, resultUrl: '' });
+        const rawUri = asset && (asset.fileCopyUri || asset.uri);
+        const uri = normalizeLocalImageUri(rawUri);
+        if (!uri) {
+          Toast.show({ title: '未获取到素材，请重试', placement: 'top' });
+          return;
+        }
+        this.setState({
+          [field]: {
+            ...asset,
+            uri,
+            type:
+              asset.type ||
+              (isVideo ? 'video/mp4' : 'image/jpeg'),
+            fileName:
+              asset.fileName ||
+              asset.name ||
+              `${isVideo ? 'video' : 'photo'}_${Date.now()}.${
+                isVideo ? 'mp4' : 'jpg'
+              }`,
+          },
+          resultUrl: '',
+        });
       }
     );
   };
@@ -238,7 +274,12 @@ class FaceSwap extends Component {
               <Text style={Styles.pickReTxt}>点击重新选择</Text>
             </View>
           ) : (
-            <Image source={{ uri: asset.uri }} style={Styles.pickImage} />
+            <Image
+              key={asset.uri}
+              source={{ uri: asset.uri }}
+              style={Styles.pickImage}
+              resizeMode="cover"
+            />
           )
         ) : (
           <View style={Styles.pickInner}>

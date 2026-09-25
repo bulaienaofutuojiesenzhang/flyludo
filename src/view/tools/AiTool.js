@@ -23,6 +23,10 @@ import { Colors } from '../../theme';
 import Http from '../../utils/HttpPost';
 import AsyncStorage from '../../utils/AsyncStorage';
 import { uploadAiFile, getResultKind } from '../../utils/aiUpload';
+import {
+  requestMediaPermission,
+  normalizeLocalImageUri,
+} from '../../utils/PermissionHelper';
 
 const SCENES_CACHE_KEY = 'AI_SCENES_CACHE_V1';
 const SCENES_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -178,9 +182,24 @@ class AiTool extends Component {
     });
   };
 
-  pickAsset = () => {
+  pickAsset = async () => {
+    const hasPermission = await requestMediaPermission();
+    if (!hasPermission) {
+      Toast.show({
+        title: '需要相册权限才能选择图片',
+        placement: 'top',
+      });
+      return;
+    }
+
     launchImageLibrary(
-      { mediaType: 'photo', quality: 0.9, selectionLimit: 1 },
+      {
+        mediaType: 'photo',
+        quality: 0.9,
+        selectionLimit: 1,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      },
       (response) => {
         if (response.didCancel) return;
         if (response.errorCode) {
@@ -194,8 +213,24 @@ class AiTool extends Component {
           return;
         }
         const asset = response.assets && response.assets[0];
-        if (!asset?.uri) return;
-        this.setState({ sourceAsset: asset, resultUrl: '' });
+        const rawUri = asset && (asset.fileCopyUri || asset.uri);
+        const uri = normalizeLocalImageUri(rawUri);
+        if (!uri) {
+          Toast.show({ title: '未获取到图片，请重试', placement: 'top' });
+          return;
+        }
+        this.setState({
+          sourceAsset: {
+            ...asset,
+            uri,
+            type: asset.type || 'image/jpeg',
+            fileName:
+              asset.fileName ||
+              asset.name ||
+              `photo_${Date.now()}.jpg`,
+          },
+          resultUrl: '',
+        });
       }
     );
   };
@@ -453,8 +488,10 @@ class AiTool extends Component {
           >
             {sourceAsset ? (
               <Image
+                key={sourceAsset.uri}
                 source={{ uri: sourceAsset.uri }}
                 style={Styles.pickImage}
+                resizeMode="cover"
               />
             ) : (
               <View style={Styles.pickInner}>
