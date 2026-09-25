@@ -150,15 +150,32 @@ class AiTool extends Component {
     this.setState({ scenesLoading: false });
   };
 
+  // 服务端失败时本地兜底，避免「获取换衣风格失败」后无法使用
+  FALLBACK_CLOTHES_STYLES = [
+    { id: 'bikini', name: '比基尼' },
+    { id: 'underwear', name: '内衣' },
+    { id: 'lingerie', name: '情趣装' },
+    { id: 'school', name: 'JK制服' },
+    { id: 'maid', name: '女仆装' },
+    { id: 'nurse', name: '护士装' },
+    { id: 'qipao', name: '旗袍' },
+    { id: 'sport', name: '运动装' },
+    { id: 'dress', name: '连衣裙' },
+  ];
+
   loadClothesStyles = async () => {
     this.setState({ stylesLoading: true });
     try {
       const res = await Http('post', '/ai-proxy/ai/clothesStyles', {});
       if (res.code === 200 && res.data?.list?.length) {
-        this.setState({ styles: res.data.list });
+        this.setState({ styles: res.data.list, stylesLoading: false });
+        return;
       }
     } catch (e) {}
-    this.setState({ stylesLoading: false });
+    this.setState({
+      styles: this.FALLBACK_CLOTHES_STYLES,
+      stylesLoading: false,
+    });
   };
 
   pickAsset = () => {

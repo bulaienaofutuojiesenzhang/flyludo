@@ -7,127 +7,76 @@ import {
   StatusBar,
   Text,
   Alert,
-  View as RNView,
+  View,
+  Platform,
 } from 'react-native';
-import { View } from 'native-base';
 import { connect } from 'react-redux';
 import Icons from 'react-native-vector-icons/AntDesign';
-import Icon from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import { Colors, Metrics } from '../theme';
+import { Metrics } from '../theme';
+
+const CARD_GAP = 10;
+const PAGE_PAD = 16;
+// 向下取整，避免浮点宽度导致换行变成两列
+const COL3_W = Math.floor((Metrics.screenWidth - PAGE_PAD * 2 - CARD_GAP * 2) / 3);
 
 class Baibao extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {};
-  }
-
-  // 工具数据
   gameList = [
-    {
-      id: 1,
-      title: '幸运转盘',
-      icon: 'sync',
-      color: '#CB9869',
-      route: 'LuckyWheel',
-    },
-    {
-      id: 2,
-      title: '掷骰子',
-      icon: 'questioncircleo',
-      color: '#4ECDC4',
-      route: 'DiceGame',
-    },
-    {
-      id: 3,
-      title: '抛硬币',
-      icon: 'creditcard',
-      color: '#FFD93D',
-      route: 'CoinFlip',
-    },
-    {
-      id: 4,
-      title: '随机数',
-      icon: 'calculator',
-      color: '#5DADE2',
-      route: 'RandomNumber',
-    },
-    {
-      id: 5,
-      title: '幸运抽签',
-      icon: 'gift',
-      color: '#FF8C42',
-      route: 'LuckyDraw',
-    },
-    {
-      id: 6,
-      title: '今日运势',
-      icon: 'staro',
-      color: '#AF7AC5',
-      route: 'DailyFortune',
-    },
-    {
-      id: 7,
-      title: '敲木鱼',
-      icon: 'sound',
-      color: '#98D8C8',
-      route: 'WoodenFish',
-    },
-    {
-      id: 8,
-      title: '二维码',
-      icon: 'qrcode',
-      color: '#4CAF50',
-      route: 'QRCodeGenerator',
-    },
-    {
-      id: 9,
-      title: '设备信息',
-      icon: 'mobile1',
-      color: '#9C27B0',
-      route: 'DeviceInfo',
-    },
+    { id: 1, title: '幸运转盘', icon: 'sync', tint: '#C19769', route: 'LuckyWheel' },
+    { id: 2, title: '掷骰子', icon: 'questioncircleo', tint: '#5B9A8B', route: 'DiceGame' },
+    { id: 3, title: '抛硬币', icon: 'creditcard', tint: '#D4A017', route: 'CoinFlip' },
+    { id: 4, title: '随机数', icon: 'calculator', tint: '#6A8CAF', route: 'RandomNumber' },
+    { id: 5, title: '幸运抽签', icon: 'gift', tint: '#E08A5B', route: 'LuckyDraw' },
+    { id: 6, title: '今日运势', icon: 'staro', tint: '#C97BA5', route: 'DailyFortune' },
+    { id: 7, title: '敲木鱼', icon: 'sound', tint: '#7BA89A', route: 'WoodenFish' },
+    { id: 8, title: '二维码', icon: 'qrcode', tint: '#6B9B76', route: 'QRCodeGenerator' },
+    { id: 9, title: '设备信息', icon: 'mobile1', tint: '#8B7EAB', route: 'DeviceInfo' },
   ];
 
   aiToolList = [
     {
       id: 'face',
       title: 'AI换脸',
+      desc: '一键替换脸部',
       icon: 'people-outline',
-      color: '#AF7AC5',
+      tint: '#C97BA5',
       route: 'FaceSwap',
       params: { mode: 'image' },
     },
     {
       id: 'clothes',
       title: 'AI换衣',
+      desc: '多种服饰风格',
       icon: 'shirt-outline',
-      color: '#5DADE2',
+      tint: '#6A8CAF',
       route: 'AiTool',
       params: { ability: 'clothesSwap' },
     },
     {
       id: 'webp',
       title: '场景动图',
+      desc: '静态变动态',
       icon: 'images-outline',
-      color: '#CB9869',
+      tint: '#C19769',
       route: 'AiTool',
       params: { ability: 'sceneWebp' },
     },
     {
       id: 'sceneFace',
       title: '场景换脸',
+      desc: '视频脸部替换',
       icon: 'videocam-outline',
-      color: '#FF8C42',
+      tint: '#E08A5B',
       route: 'FaceSwap',
       params: { mode: 'video' },
     },
     {
       id: 'sceneVideo',
       title: '场景视频',
+      desc: '专属场景生成',
       icon: 'film-outline',
-      color: '#4ECDC4',
+      tint: '#5B9A8B',
       route: 'AiTool',
       params: { ability: 'sceneVideo' },
     },
@@ -166,87 +115,81 @@ class Baibao extends React.Component {
   render() {
     return (
       <SafeAreaView style={Styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="white" />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
 
-        <ScrollView style={Styles.scrollView}>
-          <View style={Styles.headerSection}>
-            <Icons name="gift" size={24} color="#FF6B6B" />
+        <ScrollView
+          style={Styles.scrollView}
+          contentContainerStyle={Styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={Styles.header}>
             <Text style={Styles.headerTitle}>百宝箱</Text>
           </View>
 
-          {/* 工具卡片列表 */}
-          <View style={Styles.gameGrid}>
+          <Text style={Styles.sectionTitle}>趣味工具</Text>
+          <View style={Styles.toolGrid}>
             {this.gameList.map((game) => (
               <TouchableOpacity
                 key={game.id}
-                style={[Styles.gameCard, { backgroundColor: game.color }]}
+                style={Styles.toolCard}
                 onPress={() => this.onGamePress(game)}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
               >
-                <View style={Styles.gameCardContent}>
-                  <Icon name={game.icon} size={48} color="#FFF" />
-                  <Text style={Styles.gameTitle}>{game.title}</Text>
+                <View style={[Styles.toolIconWrap, { backgroundColor: `${game.tint}18` }]}>
+                  <Icons name={game.icon} size={22} color={game.tint} />
                 </View>
-                <View style={Styles.decorationCircle1} />
-                <View style={Styles.decorationCircle2} />
+                <Text style={Styles.toolTitle} numberOfLines={1}>
+                  {game.title}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* AI 专区：放在工具网格下方 */}
-          <View style={Styles.aiSection}>
-            <View style={Styles.aiSectionHeader}>
-              <Ionicons name="sparkles" size={18} color={Colors.subject} />
-              <Text style={Styles.aiSectionTitle}>AI 专区</Text>
-            </View>
-
-            {/* AI女友 横幅 */}
-            <TouchableOpacity
-              style={Styles.aiBanner}
-              onPress={this.onAiGirlfriendPress}
-              activeOpacity={0.88}
-            >
-              <RNView style={Styles.aiBannerDecor1} />
-              <RNView style={Styles.aiBannerDecor2} />
-              <View style={Styles.aiBannerContent}>
-                <View style={Styles.aiBannerIconWrap}>
-                  <Ionicons name="heart" size={28} color="#FFF" />
+          <Text style={[Styles.sectionTitle, Styles.sectionTitleSpaced]}>AI 玩法</Text>
+          <View style={Styles.aiGrid}>
+            {this.aiToolList.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={Styles.aiCard}
+                onPress={() => this.onAiPress(item)}
+                activeOpacity={0.75}
+              >
+                <View style={[Styles.aiIconWrap, { backgroundColor: `${item.tint}18` }]}>
+                  <Ionicons name={item.icon} size={22} color={item.tint} />
                 </View>
-                <View style={Styles.aiBannerText}>
-                  <Text style={Styles.aiBannerTitle}>AI女友</Text>
-                  <Text style={Styles.aiBannerSub}>
-                    智能陪伴 · 随心畅聊 · 点击进入
+                <View style={Styles.aiTextCol}>
+                  <Text style={Styles.aiTitle}>{item.title}</Text>
+                  <Text style={Styles.aiDesc} numberOfLines={1}>
+                    {item.desc}
                   </Text>
                 </View>
-                <View style={Styles.aiBannerCta}>
-                  <Text style={Styles.aiBannerCtaTxt}>去聊聊</Text>
-                  <Icon name="right" size={12} color="#C19769" />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* AI 工具网格 */}
-            <View style={Styles.aiGrid}>
-              {this.aiToolList.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[Styles.aiCard, { backgroundColor: item.color }]}
-                  onPress={() => this.onAiPress(item)}
-                  activeOpacity={0.8}
-                >
-                  <View style={Styles.gameCardContent}>
-                    <Ionicons name={item.icon} size={36} color="#FFF" />
-                    <Text style={Styles.aiCardTitle}>{item.title}</Text>
-                  </View>
-                  <View style={Styles.decorationCircle1} />
-                  <View style={Styles.decorationCircle2} />
-                </TouchableOpacity>
-              ))}
-            </View>
+                <Icons name="right" size={12} color="#C9B8B0" />
+              </TouchableOpacity>
+            ))}
           </View>
-
-          <View style={{ height: 30 }} />
         </ScrollView>
+
+        {/* 底部固定：AI女友 */}
+        <View style={Styles.bottomDock}>
+          <TouchableOpacity
+            style={Styles.gfBar}
+            onPress={this.onAiGirlfriendPress}
+            activeOpacity={0.88}
+          >
+            <View style={Styles.gfGlow} />
+            <View style={Styles.gfIcon}>
+              <Ionicons name="heart" size={22} color="#FFF" />
+            </View>
+            <View style={Styles.gfText}>
+              <Text style={Styles.gfTitle}>AI女友</Text>
+              <Text style={Styles.gfSub}>智能陪伴 · 随时开聊</Text>
+            </View>
+            <View style={Styles.gfCta}>
+              <Text style={Styles.gfCtaTxt}>进入</Text>
+              <Icons name="right" size={11} color="#C44A6A" />
+            </View>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -258,200 +201,182 @@ const mapStateToProps = (state) => ({
   user: state.user,
 });
 
-const mapDispatchToProps = (dispatch) => ({});
+const mapDispatchToProps = () => ({});
 
 export default connect(mapStateToProps, mapDispatchToProps)(Baibao);
 
 const Styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFF8F5',
   },
   scrollView: {
     flex: 1,
   },
-  headerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: Colors.bai,
-    marginBottom: 15,
+  scrollContent: {
+    paddingHorizontal: PAGE_PAD,
+    paddingBottom: 24,
+  },
+  header: {
+    paddingTop: 8,
+    paddingBottom: 14,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 10,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2A1F24',
   },
-  gameGrid: {
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2A1F24',
+    marginBottom: 10,
+  },
+  sectionTitleSpaced: {
+    marginTop: 8,
+  },
+  toolGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 15,
     justifyContent: 'space-between',
-  },
-  gameCard: {
-    width: (Metrics.screenWidth - 45) / 3,
-    aspectRatio: 1,
-    borderRadius: 16,
-    marginBottom: 15,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  gameCardContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  gameTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  decorationCircle1: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    top: -20,
-    right: -20,
-  },
-  decorationCircle2: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    bottom: -10,
-    left: -10,
-  },
-  aiSection: {
-    marginTop: 8,
-    paddingHorizontal: 15,
-  },
-  aiSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 12,
   },
-  aiSectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 6,
+  toolCard: {
+    width: COL3_W,
+    marginBottom: CARD_GAP,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(193, 151, 105, 0.16)',
+    shadowColor: '#C19769',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  aiBanner: {
-    backgroundColor: '#E8A0BF',
-    borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    marginBottom: 15,
-    overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#E8A0BF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+  toolIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
-  aiBannerDecor1: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    top: -40,
-    right: -20,
+  toolTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#3D2F34',
+    textAlign: 'center',
   },
-  aiBannerDecor2: {
-    position: 'absolute',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    bottom: -20,
-    left: 40,
+  aiGrid: {
+    marginBottom: 8,
   },
-  aiBannerContent: {
+  aiCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 122, 150, 0.14)',
+    shadowColor: '#E87A96',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  aiBannerIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    justifyContent: 'center',
+  aiIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  aiBannerText: {
+  aiTextCol: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  aiTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2A1F24',
+  },
+  aiDesc: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#A88F97',
+  },
+  bottomDock: {
+    paddingHorizontal: PAGE_PAD,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'android' ? 10 : 4,
+    backgroundColor: '#FFF8F5',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(232, 122, 150, 0.12)',
+  },
+  gfBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E86B8A',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    overflow: 'hidden',
+    shadowColor: '#E86B8A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  gfGlow: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    right: -20,
+    top: -30,
+  },
+  gfIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gfText: {
     flex: 1,
     marginLeft: 12,
   },
-  aiBannerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  gfTitle: {
+    fontSize: 16,
+    fontWeight: '800',
     color: '#FFF',
   },
-  aiBannerSub: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
-    marginTop: 4,
+  gfSub: {
+    marginTop: 2,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.88)',
   },
-  aiBannerCta: {
+  gfCta: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    borderRadius: 16,
+    borderRadius: 20,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
-  aiBannerCtaTxt: {
+  gfCtaTxt: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#C19769',
+    fontWeight: '700',
+    color: '#C44A6A',
     marginRight: 2,
-  },
-  aiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  aiCard: {
-    width: (Metrics.screenWidth - 45) / 2,
-    aspectRatio: 1.6,
-    borderRadius: 16,
-    marginBottom: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  aiCardTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#FFF',
-    marginTop: 8,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
 });
