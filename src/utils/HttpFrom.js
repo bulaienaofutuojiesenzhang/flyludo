@@ -2,24 +2,27 @@ import Config from '../config/index';
 import qs from 'qs';
 import AsyncStorage from './AsyncStorage';
 
-// 图片上传
+// 图片上传（飞行棋自有 R2：dao.foleme.com）
 export default {
 	async imgUpData(imgUrl,imgType = 'image/jpeg',imgName='myimg') {
 		// Token
 		let Token = await AsyncStorage.getItem("jwToken");
-		console.log('Token',Token)
 		try {
-			let formData = new FormData();// 把图片放入formData中,采用formData来实现
-			let fileObj = { uri:  imgUrl, type: imgType, name: imgName };// 这里的key(uri和type和name)不能改变,此处type也有可能是'application/octet-stream',看后台配置
+			let formData = new FormData();
+			let fileObj = { uri:  imgUrl, type: imgType, name: imgName };
 			formData.append('file', fileObj)
+			const headers = {
+				Accept: 'application/json',
+			};
+			if (Token) {
+				// 与 HttpPost 一致：Bearer；勿手动设 multipart Content-Type（需带 boundary）
+				headers.Authorization = Token.indexOf('Bearer ') === 0 ? Token : ('Bearer ' + Token);
+			}
 			let response = await fetch(
 				Config.API_PATH + "/api/oss/upload", 
 				{
 					method: 'POST',
-					headers: {
-						'Content-Type':'multipart/form-data',
-						'Authorization': Token
-					},
+					headers,
 					body: formData
 				});
 			
@@ -48,4 +51,3 @@ export default {
 		}
 	}
 }
-

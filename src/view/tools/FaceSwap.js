@@ -16,6 +16,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { connect } from 'react-redux';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { WebView } from 'react-native-webview';
+import Video from 'react-native-video';
 
 import { Loading, ToastService, AppDialog } from '../../component';
 import { Colors } from '../../theme';
@@ -266,22 +267,36 @@ class FaceSwap extends Component {
   }
 
   renderResult(resultUrl) {
-    const kind = getResultKind(resultUrl);
-    if (kind === 'video' || kind === 'anim') {
+    const kind = getResultKind(
+      resultUrl,
+      this.state.mode === 'video' ? 'video' : undefined
+    );
+    if (kind === 'video') {
+      return (
+        <Video
+          source={{ uri: resultUrl }}
+          style={Styles.resultVideo}
+          controls
+          resizeMode="contain"
+          paused={false}
+          repeat
+        />
+      );
+    }
+    if (kind === 'anim') {
       const safeUrl = String(resultUrl).replace(/"/g, '%22');
-      const html =
-        kind === 'video'
-          ? `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000}video{width:100%;height:100%;object-fit:contain}</style></head><body><video src="${safeUrl}" controls autoplay playsinline loop></video></body></html>`
-          : `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><style>html,body{margin:0;padding:0;width:100%;height:100%;background:#F5F5F5;display:flex;align-items:center;justify-content:center}img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><img src="${safeUrl}"/></body></html>`;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/><style>html,body{margin:0;padding:0;width:100%;height:100%;background:#F5F5F5;overflow:hidden}body{display:flex;align-items:center;justify-content:center}img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><img src="${safeUrl}"/></body></html>`;
       return (
         <WebView
-          source={{ html, baseUrl: '' }}
+          source={{ html, baseUrl: 'https://localhost' }}
           style={Styles.resultMedia}
           scrollEnabled={false}
+          bounces={false}
           originWhitelist={['*']}
           mixedContentMode="always"
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
+          androidLayerType="hardware"
         />
       );
     }
@@ -548,6 +563,12 @@ const Styles = StyleSheet.create({
     height: 320,
     borderRadius: 10,
     backgroundColor: '#F5F5F5',
+  },
+  resultVideo: {
+    width: '100%',
+    height: 320,
+    borderRadius: 10,
+    backgroundColor: '#000',
   },
   saveBtn: {
     flexDirection: 'row',

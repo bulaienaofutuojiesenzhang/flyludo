@@ -2,8 +2,8 @@ import Config from '../config/index';
 import AsyncStorage from './AsyncStorage';
 
 /**
- * AI 素材上传到 tongcheng BFF：POST /ai-proxy/upload
- * 复用 HttpFrom 的 FormData 模式，JWT 与 HttpPost 一致（Bearer）
+ * AI / 通用素材上传：走飞行棋自有接口 POST /api/oss/upload → R2 foleme
+ * 返回可公网访问的完整 URL（供 z7 AI 拉取）
  */
 export async function uploadAiFile(asset, options = {}) {
   const isVideo = !!options.isVideo;
@@ -20,19 +20,19 @@ export async function uploadAiFile(asset, options = {}) {
   const formData = new FormData();
   formData.append('file', { uri, type, name });
 
-  let url = '/ai-proxy/upload';
+  let url = '/api/oss/upload';
   if (testUrl) {
     url = testUrl + url;
   } else {
     url = Config.API_PATH + url;
   }
 
-  // 不要手动设 Content-Type：RN fetch 需自动带 multipart boundary
   const headers = {
     Accept: 'application/json',
   };
   if (jwToken) {
-    headers.Authorization = 'Bearer ' + jwToken;
+    headers.Authorization =
+      jwToken.indexOf('Bearer ') === 0 ? jwToken : 'Bearer ' + jwToken;
   }
 
   const response = await fetch(url, {
@@ -50,24 +50,33 @@ export async function uploadAiFile(asset, options = {}) {
     );
   }
   if (res && res.code === 200 && res.data) {
-    // data 可能是字符串 URL，或 { url / name }
     if (typeof res.data === 'string') return res.data;
     if (res.data.url) return res.data.url;
     if (res.data.name) {
-      // 若只返回相对 path，拼 File_PATH
       const n = res.data.name;
       if (/^https?:\/\//i.test(n)) return n;
-      return (Config.File_PATH || '') + n;
+      const base = (Config.File_PATH || '').replace(/\/$/, '');
+      return base + (n.startsWith('/') ? n : '/' + n);
     }
     return res.data;
   }
   throw new Error((res && (res.message || res.msg)) || '素材上传失败');
 }
 
-/** 根据结果 URL 后缀判断媒体类型 */
-export function getResultKind(url) {
-  const u = String(url || '').split('?')[0].toLowerCase();
-  if (/\.(mp4|mov|webm|m3u8)$/.test(u)) return 'video';
+/**
+ * 根据结果 URL / 业务类型判断媒体类型
+ * @param {string} url
+ * @param {'video'|'anim'|'image'|string} [hint] 如 sceneVideo → video
+ */
+export function getResultKind(url, hint) {
+  if (hint === 'video' || hint === 'anim' || hint === 'image') return hint;
+  const raw = String(url || '');
+  const u = raw.split('?')[0].toLowerCase();
+  if (/\.(mp4|mov|m4v|webm|mkv|m3u8)$/.test(u)) return 'video';
   if (/\.(webp|gif)$/.test(u)) return 'anim';
+  // 无后缀的 CDN 链接：靠路径关键词兜底
+  if (/\/(video|videos|mp4)\b/i.test(u) || /[?&](type|format|mime)=.*video/i.test(raw)) {
+    return 'video';
+  }
   return 'image';
 }
