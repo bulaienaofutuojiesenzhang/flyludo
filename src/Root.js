@@ -43,7 +43,7 @@ const Stack = createStackNavigator();
 
 
 
-/** 底部五栏：首页（动态/附近）/ 扩列（微信盲盒+寻宝）/ 搭子（居中）/ 消息 / 我的 */
+/** 底部五栏：首页（动态/附近）/ 扩列（微信盲盒+寻宝）/ 搭子 / 消息 / 我的 */
 const TAB_ICONS = {
   Home: 'home',
   Match: 'hearto',
@@ -150,7 +150,7 @@ function MyTabBar({ state, descriptors, navigation }) {
     <View style={{
       flexDirection: 'row',
       backgroundColor: '#fff',
-      paddingTop: 14,
+      paddingTop: 6,
       paddingBottom: isIPhoneXFooter(Platform.OS === 'ios' ? 12 : 8),
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: SC.line,
@@ -177,24 +177,6 @@ function MyTabBar({ state, descriptors, navigation }) {
             navigation.navigate(route.name);
           }
         };
-
-        if (route.name === 'Play') {
-          return (
-            <TouchableOpacity
-              key={index}
-              accessibilityRole="button"
-              accessibilityLabel="搭子"
-              onPress={onPress}
-              activeOpacity={0.85}
-              style={Styles.tabItem}
-            >
-              <View style={[Styles.playBubble, !isFocused && Styles.playBubbleOff]}>
-                <Icons name={TAB_ICONS.Play} size={22} color="#fff" />
-                <Text style={Styles.playTxt}>{label}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        }
 
         return (
           <TouchableOpacity
@@ -656,26 +638,6 @@ export default connect(mapStateToProps, mapDispatchToProps)(Root)
 const Styles = StyleSheet.create({
   tabItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   iconWrap: { height: 30, alignItems: 'center', justifyContent: 'center' },
-  /* 居中「搭子」：突出的圆形按钮 */
-  playBubble: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    marginTop: -12,
-    marginBottom: 2,
-    backgroundColor: SC.rose,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-    elevation: 6,
-    shadowColor: SC.rose,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  playBubbleOff: { backgroundColor: '#B07AF0' },
-  playTxt: { marginTop: 1, color: '#fff', fontSize: 10, fontWeight: '800' },
   badge: {
     position: 'absolute',
     right: -6,

@@ -7,11 +7,13 @@ import {
   Pressable,
   Image,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import { SC, socialShadowLite } from '../../theme/social';
+import { ROMANTIC_STEPS, FITNESS_STEPS } from '../Home';
 
 const PAD = 20;
 
@@ -70,6 +72,12 @@ class Play extends React.Component {
   componentDidMount() {
     this.focusUnsub = this.props.navigation.addListener('focus', () => {
       StatusBar.setBarStyle('dark-content');
+      // 棋盘页是全屏沉浸式（状态栏透明），这里先统一成透明，
+      // 否则 Android 进入棋盘时布局会被状态栏高度顶上去
+      if (Platform.OS === 'android') {
+        StatusBar.setTranslucent(true);
+        StatusBar.setBackgroundColor('transparent');
+      }
     });
   }
 
@@ -93,22 +101,67 @@ class Play extends React.Component {
     this.props.navigation.navigate(route);
   };
 
-  askWx = () => {
-    this.props.navigation.navigate('MainTab', { screen: 'Match' });
+  /** 情侣飞行棋：和 TA 一起挑战浪漫任务 */
+  startRomantic = () => {
+    this.props.navigation.push('CoupleFlyingChess', {
+      gameData: {
+        title: '情侣飞行棋',
+        description: '和TA一起挑战浪漫任务',
+        playerCount: 2,
+        steps: ROMANTIC_STEPS,
+      },
+    });
+  };
+
+  /** 情侣健身飞行棋 */
+  startFitness = () => {
+    this.props.navigation.push('CoupleFlyingChess', {
+      gameData: {
+        title: '情侣健身飞行棋',
+        description: '和TA一起挑战健身目标',
+        playerCount: 2,
+        steps: FITNESS_STEPS,
+      },
+    });
+  };
+
+  /** 自定义棋盘（需要登录） */
+  goCustom = () => {
+    this.requireLogin(() => this.props.navigation.navigate('Found', { currentTab: 'creation' }));
   };
 
   renderHero = () => (
-    <Pressable style={[styles.hero, socialShadowLite]} onPress={this.askWx}>
-      <Image source={require('../../asserts/images/home/v2_box.png')} style={styles.heroImg} />
-      <View style={styles.heroScrim} pointerEvents="none" />
-      <View style={styles.heroText} pointerEvents="none">
-        <Text style={styles.heroTitle}>微信盲盒</Text>
-        <Text style={styles.heroDesc}>抽一个同城微信号，扩列从这里开始</Text>
+    <View>
+      <Pressable style={[styles.hero, socialShadowLite]} onPress={this.startRomantic}>
+        <Image source={require('../../asserts/images/home/v2_hero.png')} style={styles.heroImg} />
+        <View style={styles.heroScrim} pointerEvents="none" />
+        <View style={styles.heroText} pointerEvents="none">
+          <Text style={styles.heroTitle}>情侣飞行棋</Text>
+          <Text style={styles.heroDesc}>和 TA 一起挑战浪漫任务，今晚玩一局</Text>
+        </View>
+        <View style={styles.heroGo}>
+          <Text style={styles.heroGoTxt}>开始</Text>
+        </View>
+      </Pressable>
+      <View style={styles.tileRow}>
+        <Pressable style={[styles.tile, socialShadowLite]} onPress={this.startFitness}>
+          <Image source={require('../../asserts/images/home/v2_fitness.png')} style={styles.tileImg} />
+          <View style={styles.tileScrim} pointerEvents="none" />
+          <View style={styles.tileText} pointerEvents="none">
+            <Text style={styles.tileTitle}>健身飞行棋</Text>
+            <Text style={styles.tileDesc}>边玩边动</Text>
+          </View>
+        </Pressable>
+        <Pressable style={[styles.tile, socialShadowLite, { marginRight: 0 }]} onPress={this.goCustom}>
+          <Image source={require('../../asserts/images/home/v2_custom.png')} style={styles.tileImg} />
+          <View style={styles.tileScrim} pointerEvents="none" />
+          <View style={styles.tileText} pointerEvents="none">
+            <Text style={styles.tileTitle}>自定义棋盘</Text>
+            <Text style={styles.tileDesc}>写专属格子</Text>
+          </View>
+        </Pressable>
       </View>
-      <View style={styles.heroGo}>
-        <Text style={styles.heroGoTxt}>去抽</Text>
-      </View>
-    </Pressable>
+    </View>
   );
 
   renderMeet = () => (
@@ -175,8 +228,7 @@ class Play extends React.Component {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <StatusBar barStyle="dark-content" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>搭子</Text>
-
+          <View style={styles.topGap} />
           {this.renderHero()}
 
           <Text style={styles.sec}>扩列</Text>
@@ -198,14 +250,7 @@ const POSTER_W = 118;
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: SC.cream },
   scroll: { paddingBottom: 30 },
-  title: {
-    paddingHorizontal: PAD,
-    paddingTop: 8,
-    paddingBottom: 14,
-    fontSize: 26,
-    fontWeight: '900',
-    color: SC.ink,
-  },
+  topGap: { height: 12 },
 
   /* 主推：整幅插画 + 底部文字 */
   hero: {
@@ -237,6 +282,29 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   heroGoTxt: { fontSize: 13, fontWeight: '800', color: SC.rose },
+
+  /* 健身飞行棋 / 自定义棋盘 两个小图块 */
+  tileRow: { flexDirection: 'row', paddingHorizontal: PAD, marginTop: 12 },
+  tile: {
+    flex: 1,
+    height: 104,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: SC.card,
+    marginRight: 12,
+  },
+  tileImg: { width: '100%', height: '100%' },
+  tileScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    backgroundColor: 'rgba(31,18,24,0.4)',
+  },
+  tileText: { position: 'absolute', left: 14, bottom: 10 },
+  tileTitle: { fontSize: 15, fontWeight: '900', color: '#fff' },
+  tileDesc: { marginTop: 2, fontSize: 11, color: 'rgba(255,255,255,0.88)' },
 
   sec: {
     paddingHorizontal: PAD,

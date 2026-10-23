@@ -13,12 +13,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Feather from 'react-native-vector-icons/Feather';
 import Http from '../../utils/HttpPost';
+import { locateMe } from '../../utils/location';
 import { SC } from '../../theme/social';
 
 import CachedImage, { preloadImages } from '../../component/CachedImage';
@@ -60,6 +63,16 @@ function fromNow(ms) {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+/** 附近定位失败时，按失败的环节给出不同提示 */
+const LOC_TIPS = {
+  PERMISSION: { title: '没有定位权限', desc: '允许定位后，才能看到离你最近的人', cta: '允许定位' },
+  BLOCKED: { title: '定位权限已关闭', desc: '请到系统设置里允许「使用期间」定位', cta: '去系统设置' },
+  GPS_OFF: { title: '手机定位服务没打开', desc: '权限已给，请打开手机的「位置信息」开关', cta: '去打开定位' },
+  NO_COORDS: { title: '权限已给，但没获取到位置', desc: '可以到窗边或室外再试一次', cta: '重新定位' },
+  GEOCODE: { title: '已获取到位置，但没算出城市', desc: '网络或地图服务异常，请稍后再试', cta: '重新定位' },
+  ERROR: { title: '定位出错了', desc: '请稍后再试', cta: '重新定位' },
+};
+
 /** 附近的人：10 分钟内算在线 */
 function activeText(ms) {
   if (!ms) {
@@ -100,6 +113,11 @@ class Moments extends React.Component {
     nearby: [],
     nearPage: 0,
     nearEnd: false,
+    // 定位：idle / locating / ok / denied / blocked / failed
+    locStatus: 'idle',
+    locMsg: '',
+    loc: null,
+    locTime: 0,
     strip: [],
     refreshing: false,
     // 评论弹层
@@ -148,7 +166,46 @@ class Moments extends React.Component {
         this.loadStrip();
       }
     } else {
+      this.ensureNearby();
+    }
+  };
+
+  /** 附近：先拿经纬度算出城市，再查附近的人（5 分钟内不重复定位） */
+  ensureNearby = (force = false) => {
+    const { loc, locTime, locStatus } = this.state;
+    if (locStatus === 'locating') {
+      return;
+    }
+    if (!force && loc && Date.now() - locTime < 5 * 60 * 1000) {
       this.loadNearby(0);
+      return;
+    }
+    this.setState({ locStatus: 'locating', locMsg: '' });
+    locateMe()
+      .then((r) => {
+        this.setState({ loc: r, locTime: Date.now(), locStatus: 'ok' }, () => this.loadNearby(0));
+        this.props.setUserInfo && this.props.setUserInfo({ city: r.city });
+        // 上报我的位置，别人看附近时能按距离排到我
+        Http('post', '/social/user/updateLocation', r).catch(() => {});
+      })
+      .catch((e) => {
+        const code = e && typeof e.code === 'string' ? e.code : 'ERROR';
+        this.setState({
+          locStatus: code,
+          locMsg: (e && e.message) || '定位失败',
+          refreshing: false,
+        });
+      });
+  };
+
+  openLocationSetting = () => {
+    const { locStatus } = this.state;
+    if (locStatus === 'BLOCKED') {
+      Linking.openSettings();
+    } else if (locStatus === 'GPS_OFF' && Platform.OS === 'android') {
+      Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => Linking.openSettings());
+    } else {
+      this.ensureNearby(true);
     }
   };
 
@@ -184,13 +241,20 @@ class Moments extends React.Component {
   };
 
   loadNearby = (page = 0) => {
-    const city = this.props.user?.city;
-    if (!city) {
+    const { loc } = this.state;
+    if (!loc) {
       this.setState({ nearby: [], refreshing: false });
       return;
     }
     this.setState({ refreshing: page === 0 });
-    Http('post', '/social/manghe/recomFriend', { page, pageNum: PAGE_NUM, type: 2, city })
+    Http('post', '/social/manghe/recomFriend', {
+      page,
+      pageNum: PAGE_NUM,
+      type: 2,
+      city: loc.city,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    })
       .then((res) => {
         if (res?.code === 200) {
           const rows = res.data?.list || [];
@@ -417,7 +481,11 @@ class Moments extends React.Component {
 
   renderNear = ({ item }) => {
     const act = activeText(item.lastActive);
-    const meta = [act, item.city, item.height ? `${item.height}cm` : ''].filter(Boolean).join(' · ');
+    const d = item.distance;
+    const dist = d == null ? '' : d < 1 ? `${Math.max(100, Math.round(d * 1000))}m` : `${d}km`;
+    const meta = [dist, act, item.city, item.height ? `${item.height}cm` : '']
+      .filter(Boolean)
+      .join(' · ');
     return (
       <Pressable style={styles.nearRow} onPress={() => this.openUser(item)}>
         {item.myFace ? (
@@ -515,10 +583,18 @@ class Moments extends React.Component {
     }
 
     if (tab === 1 && !this.mine) {
-      if (!this.props.user?.city) {
-        return this.renderEmpty('还没有设置城市', '设置城市后，才能看到附近的人', '去设置', () =>
-          this.props.navigation.navigate('MyHome')
+      const { locStatus, locMsg, loc } = this.state;
+      if (!loc && (locStatus === 'idle' || locStatus === 'locating')) {
+        return (
+          <View style={styles.empty}>
+            <ActivityIndicator color={SC.rose} />
+            <Text style={[styles.emptyDesc, { marginTop: 12 }]}>正在获取你的位置…</Text>
+          </View>
         );
+      }
+      if (!loc) {
+        const t = LOC_TIPS[locStatus] || LOC_TIPS.ERROR;
+        return this.renderEmpty(t.title, locMsg || t.desc, t.cta, this.openLocationSetting);
       }
       return (
         <FlatList
@@ -530,6 +606,13 @@ class Moments extends React.Component {
           onEndReached={() => !nearEnd && this.loadNearby(this.state.nearPage + 1)}
           onEndReachedThreshold={0.4}
           contentContainerStyle={styles.listPad}
+          ListHeaderComponent={
+            <Pressable style={styles.locBar} onPress={() => this.ensureNearby(true)}>
+              <Feather name="map-pin" size={13} color={SC.rose} />
+              <Text style={styles.locTxt}>{loc.city}</Text>
+              <Text style={styles.locHint}>点击刷新位置</Text>
+            </Pressable>
+          }
           ListEmptyComponent={this.renderEmpty('附近暂时没有人', '换个时间再来看看')}
         />
       );
@@ -736,6 +819,14 @@ const styles = StyleSheet.create({
   nearMid: { flex: 1, marginLeft: 14, marginRight: 8 },
   nameLine: { flexDirection: 'row', alignItems: 'center' },
   nearMeta: { marginTop: 6, fontSize: 12, color: 'rgba(31,18,24,0.45)' },
+  locBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: PAD,
+    paddingVertical: 10,
+  },
+  locTxt: { marginLeft: 6, fontSize: 13, fontWeight: '700', color: SC.ink },
+  locHint: { marginLeft: 8, fontSize: 11, color: 'rgba(31,18,24,0.4)' },
   nearSign: { marginTop: 5, fontSize: 13, color: SC.inkSoft },
   hiBtn: {
     paddingHorizontal: 14,
@@ -822,4 +913,7 @@ const styles = StyleSheet.create({
   cmtSendTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });
 
-export default connect((s) => ({ user: s.user }))(Moments);
+export default connect(
+  (s) => ({ user: s.user }),
+  (d) => ({ setUserInfo: (p) => d({ type: 'SET_USERINFO', payload: p }) })
+)(Moments);
