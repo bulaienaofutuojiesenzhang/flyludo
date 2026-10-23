@@ -11,6 +11,8 @@ import {
   StatusBar,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Icons from 'react-native-vector-icons/AntDesign';
 import { Colors, Metrics } from '../../theme';
 import { ToastService } from '../../component';
 
@@ -697,25 +699,35 @@ class CoupleFlyingChess extends React.Component {
 
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#6B4E8D" translucent={false} />
-        
-        {/* 左上角标题和描述 */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.gameTitle}>{gameData.title || '情侣飞行棋'}</Text>
-          <TouchableOpacity 
-            style={styles.infoButton}
-            onPress={() => {
-              this.setState({ showDescModal: true });
-            }}
-          >
-            <Text style={styles.infoIcon}>ℹ️</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 游戏规则按钮 */}
-        <TouchableOpacity style={styles.rulesButton}>
-          <Text style={styles.rulesButtonText}>游戏规则</Text>
-        </TouchableOpacity>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        <SafeAreaView edges={['top']} style={styles.topSafe} pointerEvents="box-none">
+          <View style={styles.headerRow} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => this.props.navigation.goBack()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icons name="left" size={20} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.headerContainer}>
+              <Text style={styles.gameTitle} numberOfLines={1}>
+                {gameData.title || '情侣飞行棋'}
+              </Text>
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={() => this.setState({ showDescModal: true })}
+              >
+                <Text style={styles.infoIcon}>ℹ️</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.rulesButton}
+              onPress={() => this.setState({ showDescModal: true })}
+            >
+              <Text style={styles.rulesButtonText}>规则</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
 
         {/* 棋盘 - 全屏 */}
         <View style={styles.boardContainer}>
@@ -951,15 +963,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#6B4E8D', // 深紫色背景
   },
-  rulesButton: {
+  topSafe: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 179, 217, 0.9)',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 1000,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 6,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  rulesButton: {
+    marginLeft: 8,
+    backgroundColor: 'rgba(255, 179, 217, 0.92)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 18,
   },
   rulesButtonText: {
     color: Colors.bai,
@@ -1000,18 +1031,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.8)',
   },
   headerContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
   },
   gameTitle: {
+    flex: 1,
     fontSize: Metrics.fontSize16,
     fontWeight: 'bold',
     color: Colors.hei,

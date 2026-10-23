@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Image, Text, Pressable, FlatList, Modal } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Text, Pressable, FlatList, Modal, Platform } from 'react-native';
 import { View, Toast } from 'native-base';
 import { connect } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import FastImage from 'react-native-fast-image';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Moment from 'moment';
@@ -29,16 +30,31 @@ class Found extends React.Component {
 
   }
 
+  applyStatusBar = () => {
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+    }
+  };
+
   componentDidMount() {
     this.initFunc()
+    this.applyStatusBar()
     
     // 监听导航焦点事件，用于页面返回时刷新
     this.focusListener = this.props.navigation.addListener('focus', () => {
-      // 检查是否需要刷新
+      this.applyStatusBar()
       const params = this.props.route?.params;
+      if (params?.currentTab && params.currentTab !== this.state.currentTab) {
+        this.setState({ currentTab: params.currentTab, page: 1 }, () => {
+          this.initFunc()
+          this.props.navigation.setParams({ currentTab: undefined })
+        })
+        return
+      }
       if (params?.refresh) {
         this.initFunc()
-        // 清除刷新参数
         this.props.navigation.setParams({ refresh: undefined })
       }
     })
@@ -226,7 +242,7 @@ class Found extends React.Component {
           
           <View style={Styles.statsRow}>
             <Text style={Styles.stepCount}>
-              步数: {gameData.steps?.length || 0} {gameData.gameType === 'feixingqi' ? '· 推荐人数:'+ gameData.playerCount || 2 : ''}
+              步数: {gameData.steps?.length || 0}{gameData.gameType === 'feixingqi' ? ` · 推荐人数: ${gameData.playerCount ?? 2}` : ''}
             </Text>
           </View>
         </Pressable>
@@ -329,8 +345,8 @@ class Found extends React.Component {
     const { currentTab } = this.state;
     
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bai }}>
-        <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.bai }}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
         
         {/* 自定义标题栏，右侧带新增按钮 */}
         <View style={Styles.headerContainer}>

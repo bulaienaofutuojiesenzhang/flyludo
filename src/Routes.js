@@ -56,6 +56,9 @@ import DareMode from './view/games/DareMode';
 import TruthOrDareList from './view/games/TruthOrDareList';
 import TruthOrDareGame from './view/games/TruthOrDareGame';
 import CreateQuestion from './view/games/CreateQuestion';
+import GomokuGame from './view/games/GomokuGame';
+import XiangqiGame from './view/games/XiangqiGame';
+import OthelloGame from './view/games/OthelloGame';
 
 // 小工具
 import RandomNumber from './view/tools/RandomNumber';
@@ -73,9 +76,128 @@ import FaceSwap from './view/tools/FaceSwap';
 import AiTool from './view/tools/AiTool';
 import AiGirlfriend from './view/tools/AiGirlfriend';
 
+import GamesHome from './view/Home';
+import FoundPage from './view/Found';
+import BaibaoPage from './view/Baibao';
+import DynamicPage from './view/Dynamic';
+import Chats from './view/social/Chats';
+import LoveMe from './view/social/LoveMe';
+import PublishSay from './view/social/PublishSay';
+import Moments from './view/social/Moments';
+import Recommend from './view/social/Recommend';
+import TreasureDetail from './view/social/TreasureDetail';
+import FriendDetail from './view/social/FriendDetail';
+import SearchFriend from './view/social/SearchFriend';
+import Qiqiu from './view/social/Qiqiu';
+import Treasure from './view/social/Treasure';
+import WeChat from './view/social/WeChat';
+import MyWeFriend from './view/social/MyWeFriend';
+import OrderDetail from './view/social/OrderDetail';
+import UpManghe from './view/social/UpManghe';
+import UpOrder from './view/social/UpOrder';
+import AnonymousWall from './view/social/AnonymousWall';
 
 export default [
-  
+  {
+    name: 'GamesHome',
+    screen: GamesHome,
+    title: '派对棋盘',
+  },
+  {
+    name: 'Found',
+    screen: FoundPage,
+    title: '创作棋盘',
+  },
+  {
+    name: 'BaibaoPage',
+    screen: BaibaoPage,
+    title: '百宝箱',
+  },
+  {
+    name: 'DynamicPage',
+    screen: DynamicPage,
+    title: '社区动态',
+  },
+  {
+    name: 'Chats',
+    screen: Chats,
+    title: '对话',
+  },
+  {
+    name: 'LoveMe',
+    screen: LoveMe,
+    title: '喜欢我',
+  },
+  {
+    name: 'Swipe',
+    screen: Recommend,
+    title: '滑卡速配',
+  },
+  {
+    name: 'TreasureDetail',
+    screen: TreasureDetail,
+    title: '宝贝详情',
+  },
+  {
+    name: 'MySays',
+    screen: Moments,
+    title: '我的动态',
+  },
+  {
+    name: 'PublishSay',
+    screen: PublishSay,
+    title: '发动态',
+  },
+  {
+    name: 'FriendDetail',
+    screen: FriendDetail,
+    title: '资料',
+  },
+  {
+    name: 'SearchFriend',
+    screen: SearchFriend,
+    title: '搜索',
+  },
+  {
+    name: 'Qiqiu',
+    screen: Qiqiu,
+    title: '真心气球',
+  },
+  {
+    name: 'Treasure',
+    screen: Treasure,
+    title: '寻宝盲盒',
+  },
+  {
+    name: 'WeChat',
+    screen: WeChat,
+    title: '微信交友',
+  },
+  {
+    name: 'MyWeFriend',
+    screen: MyWeFriend,
+    title: '抽到的微信',
+  },
+  {
+    name: 'OrderDetail',
+    screen: OrderDetail,
+    title: '我的盲盒',
+  },
+  {
+    name: 'UpManghe',
+    screen: UpManghe,
+    title: '上架盲盒',
+  },
+  {
+    name: 'UpOrder',
+    screen: UpOrder,
+    title: '卖家订单',
+  },
+  {
+    name: 'AnonymousWall',
+    screen: AnonymousWall,
+    title: '匿名墙',
+  },
   {
     name: 'DynamicDetail',
     screen: DynamicDetail,
@@ -816,6 +938,63 @@ export default [
     screen: CoupleFlyingChess,
     options: {
       title: "情侣飞行棋",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+      },
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
+    name: 'GomokuGame',
+    screen: GomokuGame,
+    options: {
+      title: "五子棋",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+      },
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
+    name: 'XiangqiGame',
+    screen: XiangqiGame,
+    options: {
+      title: "中国象棋",
+      headerShown: false,
+      headerBackTitle: '',
+      gestureEnabled: false,
+      presentation: 'modal',
+      animation: 'slide_from_right',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+      },
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
+    name: 'OthelloGame',
+    screen: OthelloGame,
+    options: {
+      title: "黑白棋",
       headerShown: false,
       headerBackTitle: '',
       gestureEnabled: false,

@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, FlatList, Image, Text, Pressable } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView, StatusBar, FlatList, Image, Text, Pressable, Platform } from 'react-native';
 import { View, Toast } from 'native-base';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import FastImage from 'react-native-fast-image';
 import { connect } from 'react-redux';
 import Moment from 'moment';
@@ -12,17 +13,22 @@ import Http from '../utils/HttpPost';
 import { ToastService } from '../component';
 
 
+const PAGE_SIZE = 10;
+
 class Dynamic extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       isLoading: false,
       refreshLoading: false,
-      showFoot: -1,
+      showFoot: -1, // -1 初始 / 0 还可加载 / 1 没有更多 / 2 加载中
       sortType: 'latest', // latest, hot, popular
       communityList: [],
       page: 1,
+      totalPages: 1,
     }
+    this._loadingMore = false;
+    this._listRequestId = 0;
   }
 
   UNSAFE_componentWillMount() {
@@ -40,21 +46,39 @@ class Dynamic extends React.Component {
     });
   }
 
+  _footAfterPage(listLen, page, totalPages) {
+    if (totalPages > 0) {
+      return page >= totalPages ? 1 : 0;
+    }
+    return listLen < PAGE_SIZE ? 1 : 0;
+  }
+
   // 获取社区动态列表
   initFunc() {
-    this.setState({ page: 1, isLoading: true })
+    const requestId = ++this._listRequestId;
+    this._loadingMore = false;
+    this.setState({ page: 1, isLoading: true, showFoot: -1, totalPages: 1 })
     Http('get', '/couple-game/community/posts', { 
       page: 1, 
-      pageSize: 10,
+      pageSize: PAGE_SIZE,
       sort: this.state.sortType 
     }).then(res => {
+      if (requestId !== this._listRequestId) return;
       this.setState({ isLoading: false, refreshLoading: false })
       console.log('/couple-game/community/posts:', res.data)
       if (res.code === 200) {
-        this.setState({ communityList: res.data.list || [] })
+        const list = res.data.list || [];
+        const totalPages = res.data.pagination?.totalPages || 1;
+        this.setState({
+          communityList: list,
+          page: 1,
+          totalPages,
+          showFoot: this._footAfterPage(list.length, 1, totalPages),
+        })
       }
     }).catch(err => {
-      this.setState({ isLoading: false, refreshLoading: false })
+      if (requestId !== this._listRequestId) return;
+      this.setState({ isLoading: false, refreshLoading: false, showFoot: 0 })
       console.log('获取社区列表失败:', err)
     })
   }
@@ -67,28 +91,53 @@ class Dynamic extends React.Component {
 
   // 加载更多
   loadData() {
-    if (this.state.showFoot == 1) {
+    const { showFoot, isLoading, refreshLoading, page, totalPages, sortType, communityList } = this.state;
+    if (showFoot === 1 || showFoot === 2 || isLoading || refreshLoading || this._loadingMore) {
       return
     }
-    let page = this.state.page + 1;
-    this.setState({ isLoading: true, showFoot: 2 })
+    if (totalPages > 0 && page >= totalPages) {
+      this.setState({ showFoot: 1 });
+      return
+    }
+    const nextPage = page + 1;
+    const requestId = this._listRequestId;
+    this._loadingMore = true;
+    this.setState({ showFoot: 2 })
     Http('get', '/couple-game/community/posts', { 
-      page: page, 
-      pageSize: 10,
-      sort: this.state.sortType 
+      page: nextPage, 
+      pageSize: PAGE_SIZE,
+      sort: sortType 
     }).then(res => {
-      this.setState({ isLoading: false, refreshLoading: false })
+      if (requestId !== this._listRequestId) {
+        this._loadingMore = false;
+        return;
+      }
+      this._loadingMore = false;
       if (res.code === 200) {
-        if (res.data.list && res.data.list.length) {
-          let myData = res.data.list;
-          let communityList = [...this.state.communityList, ...myData]
-          this.setState({ communityList: communityList, page: page, showFoot: 0 })
+        const myData = res.data.list || [];
+        const pages = res.data.pagination?.totalPages || totalPages;
+        if (myData.length) {
+          const exist = new Set(communityList.map((p) => p.postId));
+          const merged = [...communityList, ...myData.filter((p) => !exist.has(p.postId))];
+          this.setState({
+            communityList: merged,
+            page: nextPage,
+            totalPages: pages,
+            showFoot: this._footAfterPage(myData.length, nextPage, pages),
+          })
         } else {
-          this.setState({ showFoot: 1 })
+          this.setState({ showFoot: 1, totalPages: pages })
         }
+      } else {
+        this.setState({ showFoot: 0 })
       }
     }).catch(err => {
-      this.setState({ isLoading: false, showFoot: 0 })
+      if (requestId !== this._listRequestId) {
+        this._loadingMore = false;
+        return;
+      }
+      this._loadingMore = false;
+      this.setState({ showFoot: 0 })
     })
   }
 
@@ -158,10 +207,11 @@ class Dynamic extends React.Component {
     } else if (this.state.showFoot === 0) {
       return (
         <View style={{ height: 58, alignItems: 'center', justifyContent: 'center', }}>
-          <Text> 下拉刷新试试吧！ </Text>
+          <Text style={{ color: Colors.hui99, fontSize: 14 }}>上拉加载更多</Text>
         </View>
       );
     }
+    return null;
   }
 
   // 根据游戏类型跳转到对应界面
@@ -319,8 +369,8 @@ class Dynamic extends React.Component {
 
   render() {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bai }}>
-        <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.bai }}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
         
         {/* 标题栏 */}
         <View style={Styles.headerContainer}>
@@ -372,7 +422,7 @@ class Dynamic extends React.Component {
           ListFooterComponent={this._renderFooter()}
           data={this.state.communityList}
           renderItem={({ item, index }) => this.renderCommunityItem(item, index)}
-          keyExtractor={(item, index) => String(index)}
+          keyExtractor={(item) => String(item.postId)}
           refreshing={this.state.refreshLoading}
           onRefresh={() => {
             this.refreshFunc()
@@ -380,7 +430,7 @@ class Dynamic extends React.Component {
           onEndReached={() => {
             this.loadData()
           }}
-          onEndReachedThreshold={0.2}
+          onEndReachedThreshold={0.3}
         />
       </SafeAreaView>
     );

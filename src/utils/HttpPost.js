@@ -5,6 +5,7 @@ import { ToastService } from '../component';
 import AsyncStorage from './AsyncStorage';
 import md5 from 'md5';
 import { Platform } from "react-native";
+import { store } from '../redux/ConfigStore';
 
 //排序的函数
 function objKeySort(obj) {
@@ -15,6 +16,28 @@ function objKeySort(obj) {
         newObj[newkey[i]] = obj[newkey[i]];//向新创建的对象中按照排好的顺序依次增加键值对
     }
     return newObj;//返回排好序的新对象
+}
+
+/** 并发 401 只跳转一次，不弹「Token已过期」 */
+let authRedirecting = false;
+
+function isAuthExpired(responseJson) {
+	if (!responseJson) return false;
+	const code = responseJson.code;
+	if (code === 401 || code === '401' || code === 'Unauthorized') return true;
+	return false;
+}
+
+function handleAuthExpired() {
+	if (authRedirecting) return;
+	authRedirecting = true;
+	AsyncStorage.setItem('jwToken', '');
+	try {
+		store.dispatch({ type: 'LOGOUT' });
+	} catch (e) { /* ignore */ }
+	DeviceEventEmitter.emit('toLogin');
+	// 登录页停留期间忽略重复事件；登录成功后由 Login 或一段时间后解除
+	setTimeout(() => { authRedirecting = false; }, 5000);
 }
 
 
@@ -93,12 +116,9 @@ export default async (type = 'GET', uri, data, ismd5 ) => {
 		Config.Env === 'dev' && console.info(responseJson);
 		Config.Env === 'dev' && console.info('开始时间',startTime,'结束时间：', endTime,'用时：', endTime-startTime);
 		Config.Env === 'dev' && console.info();
-		if(responseJson && responseJson.code == 'Unauthorized'){
-			ToastService.showToast({
-				title: responseJson.msg || responseJson.data?.msg || '请重新登录',
-				type: 'error',
-			});
-			DeviceEventEmitter.emit("toLogin");
+		if (isAuthExpired(responseJson)) {
+			// 不 Toast「未授权或Token已过期」，直接清会话并回登录页
+			handleAuthExpired();
 		} else if (responseJson && responseJson.code != 200 ){
 			if (responseJson.message || responseJson.msg ) {
 				ToastService.showToast({

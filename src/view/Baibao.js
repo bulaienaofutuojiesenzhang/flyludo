@@ -3,13 +3,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   Text,
   View,
   Platform,
 } from 'react-native';
 import { connect } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
@@ -115,18 +115,14 @@ class Baibao extends React.Component {
 
   render() {
     return (
-      <SafeAreaView style={Styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFF8F5" />
+      <SafeAreaView edges={['top']} style={Styles.container}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
         <ScrollView
           style={Styles.scrollView}
           contentContainerStyle={Styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={Styles.header}>
-            <Text style={Styles.headerTitle}>百宝箱</Text>
-          </View>
-
           <Text style={Styles.sectionTitle}>趣味工具</Text>
           <View style={Styles.toolGrid}>
             {this.gameList.map((game) => (
@@ -216,16 +212,8 @@ const Styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: PAGE_PAD,
+    paddingTop: 12,
     paddingBottom: 24,
-  },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 14,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2A1F24',
   },
   sectionTitle: {
     fontSize: 15,

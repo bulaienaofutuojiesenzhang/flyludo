@@ -1,492 +1,657 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, StatusBar, ImageBackground, Image, Text, Pressable, Linking } from 'react-native';
-import { View, Toast } from 'native-base';
+import {
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  StatusBar,
+  Image,
+  Text,
+  Pressable,
+  Linking,
+  Platform,
+  View,
+  Dimensions,
+} from 'react-native';
 import Icons from 'react-native-vector-icons/AntDesign';
 import { connect } from 'react-redux';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FastImage from 'react-native-fast-image';
 import Config from '../config/index';
-import { Button, Icon } from 'react-native-elements';
-import { Loading, MyAlert } from '../component';
-import { Colors, Metrics } from '../theme';
+import { SC } from '../theme/social';
 import Http from '../utils/HttpPost';
 import { isVipActive, getVipBadgeText } from '../utils/vip';
 
-class Users extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      isLoading: false,
-      refreshLoading: false,
-      myAlert: false,
-      showDonateModal: false,
-      fansNum: 0,
-      focusNum: 0,
-    }
-  }
+import CachedImage from '../component/CachedImage';
+const { width: W } = Dimensions.get('window');
+const PAD = 14;
+const HERO = '#8F63F2';
+const HERO_DARK = '#7B4FE0';
+const HERO_LIGHT = '#A982F7';
+const BLUE = '#4FC3F7';
+const PINK = '#FF8FB1';
+const THUMB = (W - PAD * 2 - 8) / 3;
 
+const SERVICE_ROWS = [
+  { icon: 'questioncircleo', label: '常见问题', route: 'ChangjianWt' },
+  { icon: 'customerservice', label: '联系客服', route: 'CausMens' },
+  { icon: 'mail', label: '反馈建议', route: 'ProblemBack' },
+  { icon: 'infocirlceo', label: '关于我们', route: 'GuanyuYika' },
+  { icon: 'filetext1', label: '个人信息收集', route: 'PrivacyInfo' },
+  { icon: 'Safety', label: '第三方 SDK', route: 'ThirdPartySDK' },
+];
+
+const PUBLIC_ROUTES = ['GuanyuYika', 'ChangjianWt', 'PrivacyInfo', 'ThirdPartySDK'];
+
+const TABS = [
+  { key: 'say', label: '瞬间', type: 4 },
+  { key: 'like', label: '赞过', type: 6 },
+];
+
+function avatarUri(user) {
+  const a = user?.avatar || user?.myFace;
+  if (!a) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(a)) {
+    return a;
+  }
+  return Config.File_PATH + a;
+}
+
+function two(n) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
+function fmtTime(ms) {
+  const d = new Date(Number(ms));
+  if (!ms || Number.isNaN(d.getTime())) {
+    return '';
+  }
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+function daysSince(t) {
+  const ms = new Date(t).getTime();
+  if (!ms) {
+    return 0;
+  }
+  return Math.max(1, Math.floor((Date.now() - ms) / 86400000) + 1);
+}
+
+class Users extends React.Component {
+  state = {
+    refreshing: false,
+    stats: { likeCount: 0, likedCount: 0, sayCount: 0 },
+    tab: 0,
+    says: [],
+    sayLoaded: false,
+  };
+
+  applyStatusBar = () => {
+    StatusBar.setBarStyle('light-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+    }
+  };
 
   componentDidMount() {
-    // // 监听 Tab 页面的 focus 和 blur 事件
+    this.applyStatusBar();
     this.unsubscribeFocus = this.props.navigation.addListener('focus', () => {
-      // 页面获得焦点时更新状态栏样式
-      StatusBar.setBackgroundColor('#fff');
-      this.refreshProfile();
+      this.applyStatusBar();
+      this.refreshAll();
     });
-
-    this.unsubscribeBlur = this.props.navigation.addListener('blur', () => {
-      // 页面失去焦点时恢复状态栏样式
-      StatusBar.setBackgroundColor('#fff');
-    });
-
-    this.refreshProfile();
-  }
-
-  refreshProfile() {
-    Http('get', '/users/profile').then((res) => {
-      if (res?.code === 200 && res.data) {
-        this.props.setUserInfo(res.data);
-      }
-    }).catch(() => {});
-  }
-
-  initFunc() {
-
-    Http('get', `/api/user/mine`, {
-
-    }).then(res => {
-      this.setState({ isLoading: false, refreshLoading: false })
-      console.log('mine:', res.data)
-      if (res.code === 200) {
-        this.props.setUserInfo(res.data);
-      }
-    })
-
-
-    Http('get', `/api/artist/fans/list/1/${10}`).then(res => {
-      console.log(res.data.list)
-      if (res.code === 200) {
-        this.setState({ fansNum: res.data.total_count })
-      }
-    })
-
-
-    Http('get', `/api/artist/collect/list/1/${10}`).then(res => {
-      if (res.code === 200) {
-        this.setState({ focusNum: res.data.total_count })
-      }
-    })
-  }
-
-
-  refreshFunc(params) {
-    console.log('refreshFuncrefreshFunc', this.props.user)
-    return;
-    this.initFunc()
+    this.refreshAll();
   }
 
   componentWillUnmount() {
-    // 在页面卸载时移除事件监听，防止内存泄漏
-    if (this.unsubscribeFocus) this.unsubscribeFocus();
-    if (this.unsubscribeBlur) this.unsubscribeBlur();
+    if (this.unsubscribeFocus) {
+      this.unsubscribeFocus();
+    }
   }
 
-  UNSAFE_componentWillMount() {
+  refreshAll = () => {
+    if (!this.props.isLogged) {
+      return Promise.resolve();
+    }
+    this.setState({ refreshing: true });
+    return Promise.all([this.refreshProfile(), this.refreshStats(), this.loadSays()]).finally(() =>
+      this.setState({ refreshing: false })
+    );
+  };
 
-  }
+  refreshProfile = () =>
+    Http('get', '/users/profile')
+      .then((res) => {
+        if (res?.code === 200 && res.data) {
+          this.props.setUserInfo(res.data);
+        }
+      })
+      .catch(() => {});
 
-  // componentDidMount() {
-  //   console.log('componentDidMountcomponentDidMount', this.props.user)
-  //   const { isLogged, navigation } = this.props;
-  //   // 检查是否已登录
-  //   if (!isLogged) {
-  //     // 如果未登录，跳转到登录界面
-  //     navigation.navigate('Login');
-  //   }
-  // }
+  refreshStats = () =>
+    Http('post', '/social/user/myStats', {})
+      .then((res) => {
+        if (res?.code === 200 && res.data) {
+          this.setState({ stats: res.data });
+        }
+      })
+      .catch(() => {});
 
-  goLoginFunc() {
-    const { isLogged, navigation } = this.props;
-    navigation.navigate('Login');
-  }
+  loadSays = (tab = this.state.tab) =>
+    Http('post', '/social/say/getPublishSay', { type: TABS[tab].type, page: 0, pageNum: 20 })
+      .then((res) => {
+        if (res?.code === 200) {
+          this.setState({ says: res.data?.list || [], sayLoaded: true });
+        }
+      })
+      .catch(() => {});
 
+  switchTab = (tab) => {
+    if (tab === this.state.tab) {
+      return;
+    }
+    this.setState({ tab, says: [], sayLoaded: false }, () => this.loadSays(tab));
+  };
 
-  render() {
+  go = (route, params) => {
+    if (!this.props.isLogged && !PUBLIC_ROUTES.includes(route)) {
+      this.props.navigation.navigate('Login');
+      return;
+    }
+    this.props.navigation.navigate(route, params);
+  };
+
+  /* ---------------- 顶部：紫色星球背景 + 工具栏 ---------------- */
+
+  renderHero() {
+    const { user, isLogged, insets } = this.props;
+    const top = (insets?.top || StatusBar.currentHeight || 0) + 6;
     return (
-      <ScrollView
-        style={{ flex: 1 }}
-        refreshControl={<RefreshControl
-          refreshing={this.state.refreshLoading}
-          onRefresh={() => {
-            this.refreshFunc()
-          }}
-        ></RefreshControl>}
-      >
-        <Loading showLoading={this.state.refreshLoading ? false : this.state.isLoading} />
-        <MyAlert
-          visible={this.state.myAlert}
-          title="提示"
-          message="该功能开发中 敬请期待..."
-          buttons={[{ title: '好的', onPress: () => { this.setState({ myAlert: false }) } }]}
-        />
-
-        <ImageBackground style={Styles.userBackImg} source={require('../asserts/images/user/icon_mine_bg.png')} resizeMode='stretch'>
-
-          {/* 用户信息展示 */}
-          <View style={Styles.userContent}>
-            <TouchableOpacity style={Styles.userContentLeft} onPress={() => this.props.navigation.navigate('MyHome')}>
-              <View style={Styles.headerContentNew}>
-                <FastImage style={Styles.headerPortrait} source={this.props.user.avatar ? { uri: Config.File_PATH + this.props.user.avatar } : require('../asserts/images/user/plc_user.png')} />
-              </View>
-              <View style={Styles.userNickCont}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={Styles.userNickText}>{this.props.user.name || '用户'}</Text>
-                  {isVipActive(this.props.user) ? (
-                    <Image source={require('../asserts/images/vip/vips.png')} style={Styles.vipBadgeImg} />
-                  ) : null}
-                </View>
-                <Text style={Styles.userPhone}>{this.props.user.account}</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={Styles.vipEntry}
-              onPress={() => this.props.navigation.navigate('Recharge')}
-            >
-              <Text style={Styles.vipEntryTitle}>
-                {isVipActive(this.props.user) ? getVipBadgeText(this.props.user) : '开通会员'}
-              </Text>
-              <Icons name="right" size={12} color="#8A4B00" />
-            </TouchableOpacity>
-          </View>
-
-        </ImageBackground>
-        {/* 主体信息 */}
-        <View style={{ paddingHorizontal: 20 }}>
-          {/* 位移主体 */}
-          <View style={{ marginTop: -30 }}>
-            <TouchableOpacity 
-              style={Styles.donateCard}
-              onPress={() => this.props.navigation.navigate('Diamond')}
-            >
-              <View style={Styles.donateContent}>
-                <Text style={Styles.donateIcon}>💎</Text>
-                <View style={Styles.donateTextContainer}>
-                  <Text style={Styles.donateTitle}>钻石充值</Text>
-                  <Text style={Styles.donateSubtitle}>
-                    余额 {this.props.user?.yuanbao || 0} 
-                  </Text>
-                </View>
-              </View>
-              <Icons name='right' style={Styles.donateArrow} />
-            </TouchableOpacity>
-            {/* 作品信息 - 列表模式 */}
-            <View style={Styles.menuListContainer}>
-
-            <TouchableOpacity 
-                style={Styles.menuListItem} 
-                onPress={() => { Linking.openURL('https://daoyikeji.com') }}
-              >
-                <View style={Styles.menuListLeft}>
-                  <Image 
-                    style={Styles.menuListIcon} 
-                    source={require('../asserts/images/user/icon_mine_tab_work.png')} 
-                    resizeMode='contain' 
-                  />
-                  <Text style={Styles.menuListText}>官网网站</Text>
-                </View>
-                <Icons name='right' style={Styles.menuListArrow} />
-              </TouchableOpacity>
-
-            <TouchableOpacity 
-                style={Styles.menuListItem} 
-                onPress={() => { this.props.navigation.navigate('ProblemBack') }}
-              >
-                <View style={Styles.menuListLeft}>
-                  <Image 
-                    style={Styles.menuListIcon} 
-                    source={require('../asserts/images/user/icon_mine_tab_work.png')} 
-                    resizeMode='contain' 
-                  />
-                  <Text style={Styles.menuListText}>反馈与建议</Text>
-                </View>
-                <Icons name='right' style={Styles.menuListArrow} />
-              </TouchableOpacity>
-
-            <TouchableOpacity 
-                style={Styles.menuListItem} 
-                onPress={() => { this.props.navigation.navigate('PrivacyInfo') }}
-              >
-                <View style={Styles.menuListLeft}>
-                  <Image 
-                    style={Styles.menuListIcon} 
-                    source={require('../asserts/images/user/icon_mine_tab_work.png')} 
-                    resizeMode='contain' 
-                  />
-                  <Text style={Styles.menuListText}>个人信息收集清单</Text>
-                </View>
-                <Icons name='right' style={Styles.menuListArrow} />
-              </TouchableOpacity>
-
-              <View style={Styles.menuListDivider} />
-
-              <TouchableOpacity 
-                style={Styles.menuListItem} 
-                onPress={() => { this.props.navigation.navigate('ThirdPartySDK') }}
-              >
-                <View style={Styles.menuListLeft}>
-                  <Image 
-                    style={Styles.menuListIcon} 
-                    source={require('../asserts/images/user/icon_mine_tab_work.png')} 
-                    resizeMode='contain' 
-                  />
-                  <Text style={Styles.menuListText}>第三方SDK使用说明</Text>
-                </View>
-                <Icons name='right' style={Styles.menuListArrow} />
-              </TouchableOpacity>
-
-             
-
-            </View> 
-
-            {/* 任务礼品 */}
-            {/* <View style={{ marginTop: 10, backgroundColor: Colors.bai, borderRadius: 5, overflow: 'hidden', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Pressable onPress={() => this.setState({ myAlert: true })}>
-                <Image style={{ width: Metrics.px2dpi(490), height: Metrics.px2dpi(192) }} source={require('../asserts/images/user/icon_mine_task.png')} resizeMode='contain' />
+      <View style={[styles.hero, { paddingTop: top }]}>
+        <View style={[styles.orb, styles.orbA]} />
+        <View style={[styles.orb, styles.orbB]} />
+        <View style={[styles.ring]} />
+        <View style={[styles.orb, styles.orbC]} />
+        <View style={styles.topBar}>
+          <View style={{ width: 28 }} />
+          <View style={styles.topRight}>
+            {isLogged ? (
+              <Pressable style={styles.spacePill} onPress={() => this.go('MySays', { mine: true })}>
+                <Icons name="earth" size={14} color="#fff" />
+                <Text style={styles.spaceTxt}>我的空间</Text>
               </Pressable>
-
-              <Pressable onPress={() => this.setState({ myAlert: true })}>
-                <Image style={{ width: Metrics.px2dpi(490), height: Metrics.px2dpi(192) }} source={require('../asserts/images/user/icon_mine_dou.png')} resizeMode='contain' />
-              </Pressable>
-            </View> */}
-
-            {/* 认证和设置 */}
-            <View style={Styles.bolockCont}>
-              <View style={Styles.bottonListCont}>
-              <TouchableOpacity style={Styles.buttonList} onPress={() => { this.props.navigation.navigate('ChangjianWt') }}>
-                  <Image style={Styles.listIcon} source={require('../asserts/images/user/wenti.png')} resizeMode='contain' />
-                  <Text style={Styles.listText}>常见问题</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { this.props.navigation.navigate('GuanyuYika') }} style={Styles.buttonList}>
-                  <Image style={Styles.listIcon} source={require('../asserts/images/user/icon_mine_tab_other.png')} resizeMode='contain' />
-                  <Text style={Styles.listText}>关于我们</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { this.props.navigation.navigate('CausMens') }} style={Styles.buttonList}>
-                  <Image style={Styles.listIcon} source={require('../asserts/images/user/icon_mine_tab_cus.png')} resizeMode='contain' />
-                  <Text style={Styles.listText}>联系客服</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={Styles.buttonList} onPress={() => { this.props.navigation.navigate('Setting') }}>
-                  <Image style={Styles.listIcon} source={require('../asserts/images/user/icon_mine_tab_set.png')} resizeMode='contain' />
-                  <Text style={Styles.listText}>用户设置</Text>
-                </TouchableOpacity >
-              </View>
-              <View style={Styles.bottonListCont}>
-                
-              </View>
-
-            </View>
-
+            ) : null}
+            <Pressable style={styles.topIcon} onPress={() => this.go('Setting')} hitSlop={8}>
+              <Icons name="setting" size={24} color="#fff" />
+            </Pressable>
           </View>
-
         </View>
-
-        {/* 捐赠弹窗 */}
-        <MyAlert
-          visible={this.state.showDonateModal}
-          title="❤️ 支持作者"
-          message=""
-          component={
-            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
-              <Text style={{ fontSize: 14, color: '#666', marginBottom: 15, textAlign: 'center' }}>
-                感谢您的支持！{'\n'}扫描下方二维码即可捐赠
-              </Text>
-              <Image 
-                style={{ width: 220, height: 220, borderRadius: 8 }} 
-                source={require('../asserts/images/user/juanzeng.jpg')} 
-                resizeMode='contain' 
-              />
-              <Text style={{ fontSize: 12, color: '#999', marginTop: 10, textAlign: 'center' }}>
-                您的每一份支持都是我们前进的动力！
-              </Text>
-            </View>
-          }
-          buttons={[{ title: '关闭', onPress: () => { this.setState({ showDonateModal: false }) } }]}
-        />
-      </ScrollView>
+        {isLogged && user?.city ? (
+          <Text style={styles.ipTxt}>所在地：{user.city}</Text>
+        ) : null}
+      </View>
     );
   }
 
+  renderChip(txt, extra) {
+    return (
+      <View style={[styles.chip, extra]}>
+        <Text style={styles.chipTxt}>{txt}</Text>
+      </View>
+    );
+  }
+
+  renderProfile() {
+    const { user, isLogged } = this.props;
+    const { stats } = this.state;
+    const face = avatarUri(user);
+    const vip = isVipActive(user);
+
+    if (!isLogged) {
+      return (
+        <View style={styles.card}>
+          <Pressable style={styles.loginRow} onPress={() => this.go('Login')}>
+            <View style={[styles.avatar, styles.avatarPh]}>
+              <Icons name="user" size={34} color={SC.roseSoft} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={styles.name}>登录同城有约</Text>
+              <Text style={styles.sign}>开启扩列 · 动态 · 私聊</Text>
+            </View>
+            <View style={styles.loginPill}>
+              <Text style={styles.loginPillTxt}>去登录</Text>
+            </View>
+          </Pressable>
+        </View>
+      );
+    }
+
+    const male = Number(user.gender) === 1;
+    const tags = [...(user.tags || []), ...(user.hobbies || [])].slice(0, 6);
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <Pressable onPress={() => this.go('MyHome')}>
+            {face ? (
+              <FastImage style={styles.avatar} source={{ uri: face }} />
+            ) : (
+              <Image style={styles.avatar} source={require('../asserts/images/user/plc_user.png')} />
+            )}
+          </Pressable>
+          <View style={styles.cardRight}>
+            <Pressable style={styles.nameRow} onPress={() => this.go('MyHome')}>
+              <Text style={styles.name} numberOfLines={1}>
+                {user.name || user.account || '用户'}
+              </Text>
+              <Icons name="edit" size={16} color="#B5B5BF" style={{ marginLeft: 6 }} />
+            </Pressable>
+            <View style={styles.stats}>
+              <Pressable style={styles.stat} onPress={() => this.go('LoveMe')}>
+                <Text style={styles.statNum}>{stats.likedCount}</Text>
+                <Text style={styles.statLab}>喜欢我</Text>
+              </Pressable>
+              <View style={styles.stat}>
+                <Text style={styles.statNum}>{stats.likeCount}</Text>
+                <Text style={styles.statLab}>我喜欢</Text>
+              </View>
+              <Pressable style={styles.stat} onPress={() => this.go('MySays', { mine: true })}>
+                <Text style={styles.statNum}>{stats.sayCount}</Text>
+                <Text style={styles.statLab}>动态</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <Pressable onPress={() => this.go('MyHome')}>
+          <Text style={[styles.sign, !(user.signStr || user.desc) && { color: '#A7A7B3' }]} numberOfLines={2}>
+            {user.signStr || user.desc || '未设置个性签名'}
+          </Text>
+        </Pressable>
+
+        <View style={styles.chipRow}>
+          {user.gender
+            ? this.renderChip(
+                `${male ? '♂' : '♀'}${user.age ? ` ${user.age}` : ''}`,
+                { backgroundColor: male ? BLUE : PINK }
+              )
+            : null}
+          {vip ? this.renderChip(getVipBadgeText(user), { backgroundColor: '#F7B731' }) : null}
+          {user.city ? this.renderChip(user.city, styles.chipGray) : null}
+          {user.job ? this.renderChip(user.job, styles.chipGray) : null}
+          {user.registerTime ? this.renderChip(`${daysSince(user.registerTime)}天`, styles.chipGray) : null}
+        </View>
+
+        <Pressable style={styles.tagBox} onPress={() => this.go('MyHome')}>
+          <View style={styles.tagWrap}>
+            {tags.length ? (
+              tags.map((t) => (
+                <Text key={t} style={styles.tagTxt}>
+                  {t}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.tagEmpty}>添加形象标签和兴趣爱好，让大家更了解你</Text>
+            )}
+          </View>
+          <View style={styles.tagPlus}>
+            <Icons name="plus" size={14} color="#666" />
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
+
+  /* ---------------- 快捷入口：一排图标 ---------------- */
+
+  renderEntries() {
+    const { user, isLogged } = this.props;
+    if (!isLogged) {
+      return null;
+    }
+    const vip = isVipActive(user);
+    const items = [
+      { icon: 'pay-circle1', color: '#5B8DEF', bg: '#E8F0FE', label: `钻石 ${Math.floor(Number(user?.yuanbao) || 0)}`, route: 'Diamond' },
+      { icon: 'Trophy', color: '#E5A21C', bg: '#FFF4DB', label: vip ? '会员中心' : '开通会员', route: 'Recharge' },
+      { icon: 'contacts', color: '#2FBF9B', bg: '#DFF7F0', label: '抽到的微信', route: 'MyWeFriend' },
+      { icon: 'gift', color: '#F0668F', bg: '#FFE6EE', label: '盲盒订单', route: 'OrderDetail' },
+      { icon: 'hearto', color: '#9B6BF2', bg: '#EFE6FE', label: '喜欢我', route: 'LoveMe' },
+    ];
+    return (
+      <View style={[styles.card, styles.entryCard]}>
+        {items.map((it) => (
+          <Pressable key={it.route} style={styles.entry} onPress={() => this.go(it.route)}>
+            <View style={[styles.entryIcon, { backgroundColor: it.bg }]}>
+              <Icons name={it.icon} size={22} color={it.color} />
+            </View>
+            <Text style={styles.entryTxt} numberOfLines={1}>
+              {it.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
+  /* ---------------- 瞬间 / 赞过 ---------------- */
+
+  renderSayItem = (item) => {
+    const imgs = item.imgList || [];
+    return (
+      <View key={item._id} style={styles.say}>
+        <View style={styles.sayHead}>
+          <Text style={styles.sayTime}>{fmtTime(item.time)}</Text>
+          {this.state.tab === 1 ? <Text style={styles.sayWho}>{item.nickName}</Text> : null}
+        </View>
+        <Text style={styles.sayText}>{item.data}</Text>
+        {imgs.length ? (
+          <View style={styles.sayImgs}>
+            {imgs.slice(0, 9).map((uri, i) => (
+              <CachedImage key={`${uri}_${i}`} source={{ uri }} style={styles.sayImg} />
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.sayFoot}>
+          <Icons name="hearto" size={13} color="#A7A7B3" />
+          <Text style={styles.sayCnt}>{item.likeCount || 0}</Text>
+          <Icons name="message1" size={13} color="#A7A7B3" style={{ marginLeft: 14 }} />
+          <Text style={styles.sayCnt}>{item.commentCount || 0}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  renderMoments() {
+    if (!this.props.isLogged) {
+      return null;
+    }
+    const { tab, says, sayLoaded, stats } = this.state;
+    return (
+      <View style={styles.momentBox}>
+        <View style={styles.mTabs}>
+          {TABS.map((t, i) => {
+            const on = tab === i;
+            return (
+              <Pressable key={t.key} style={styles.mTab} onPress={() => this.switchTab(i)}>
+                <Text style={[styles.mTabTxt, on && styles.mTabOn]}>
+                  {t.label}
+                  {i === 0 && stats.sayCount ? <Text style={styles.mTabNum}> {stats.sayCount}</Text> : null}
+                </Text>
+                <View style={[styles.mBar, on && styles.mBarOn]} />
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.mHead}>
+          <Text style={styles.mAll}>全部</Text>
+          <Pressable hitSlop={10} onPress={() => this.go('PublishSay')}>
+            <Icons name="plus" size={20} color="#222" />
+          </Pressable>
+        </View>
+        {says.map(this.renderSayItem)}
+        {sayLoaded && !says.length ? (
+          <Pressable style={styles.emptyBox} onPress={() => (tab === 0 ? this.go('PublishSay') : null)}>
+            <Text style={styles.emptyTxt}>
+              {tab === 0 ? '还没有动态，点这里发布第一条' : '还没有赞过的动态'}
+            </Text>
+          </Pressable>
+        ) : null}
+        {sayLoaded && says.length ? <Text style={styles.noMore}>没有更多了</Text> : null}
+      </View>
+    );
+  }
+
+  renderService() {
+    return (
+      <View style={styles.serviceCard}>
+        <Pressable style={styles.listRow} onPress={() => Linking.openURL('https://daoyikeji.com')}>
+          <View style={styles.listLeft}>
+            <View style={styles.listIcon}>
+              <Icons name="link" size={15} color={SC.rose} />
+            </View>
+            <Text style={styles.listTxt}>官网网站</Text>
+          </View>
+          <Icons name="right" size={12} color={SC.mute2} />
+        </Pressable>
+        {SERVICE_ROWS.map((item, i) => (
+          <Pressable
+            key={item.route}
+            style={[styles.listRow, i === SERVICE_ROWS.length - 1 && styles.listRowLast]}
+            onPress={() => this.go(item.route)}
+          >
+            <View style={styles.listLeft}>
+              <View style={styles.listIcon}>
+                <Icons name={item.icon} size={15} color={SC.rose} />
+              </View>
+              <Text style={styles.listTxt}>{item.label}</Text>
+            </View>
+            <Icons name="right" size={12} color={SC.mute2} />
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
+  render() {
+    return (
+      <View style={styles.root}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={this.state.refreshing}
+              onRefresh={this.refreshAll}
+              tintColor="#fff"
+              progressViewOffset={60}
+            />
+          }
+        >
+          {this.renderHero()}
+          {this.renderProfile()}
+          {this.renderEntries()}
+          {this.renderMoments()}
+          {this.renderService()}
+          <Text style={styles.foot}>同城有约</Text>
+        </ScrollView>
+      </View>
+    );
+  }
 }
 
-
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   isLogged: state.user.isLogged,
   token: state.user.token,
   user: state.user,
 });
 
-const mapDispatchToProps = dispatch => ({
-  setUserInfo: payload => dispatch({ type: 'SET_USERINFO', payload }),
+const mapDispatchToProps = (dispatch) => ({
+  setUserInfo: (payload) => dispatch({ type: 'SET_USERINFO', payload }),
 });
 
-export default connect(mapStateToProps, mapDispatchToProps)(Users);
+function UsersWithInsets(props) {
+  const insets = useSafeAreaInsets();
+  return <Users {...props} insets={insets} />;
+}
 
-const Styles = StyleSheet.create({
-  userBackImg: { flex: 1, height: Metrics.px2dp(360) },
-  userContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingLeft: 20, paddingRight: 16, marginTop: 50, },
-  userContentLeft: { flexDirection: "row", alignItems: "center", flex: 1, paddingRight: 8 },
-  userNickCont: { marginLeft: 18, flexShrink: 1 },
-  vipEntry: {
+export default connect(mapStateToProps, mapDispatchToProps)(UsersWithInsets);
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#F5F6F8' },
+  scroll: { paddingBottom: 30 },
+
+  /* 紫色星球头图 */
+  hero: { height: 250, backgroundColor: HERO, overflow: 'hidden' },
+  orb: { position: 'absolute', borderRadius: 999 },
+  orbA: { width: 260, height: 260, right: -70, top: -60, backgroundColor: HERO_LIGHT, opacity: 0.55 },
+  orbB: { width: 150, height: 150, left: -50, top: 90, backgroundColor: HERO_DARK, opacity: 0.55 },
+  orbC: { width: 60, height: 60, left: W * 0.42, top: 70, backgroundColor: '#fff', opacity: 0.16 },
+  ring: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 6,
+    borderColor: 'rgba(255,255,255,0.22)',
+    left: W * 0.12,
+    top: 36,
+    transform: [{ rotate: '-20deg' }, { scaleY: 0.45 }],
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFD700',
+    justifyContent: 'space-between',
+    paddingHorizontal: PAD + 2,
+    height: 44,
+  },
+  topRight: { flexDirection: 'row', alignItems: 'center' },
+  spacePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 32,
+    paddingHorizontal: 14,
     borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+    marginRight: 18,
   },
-  vipEntryTitle: {
-    fontSize: 12,
-    color: '#8A4B00',
-    fontWeight: '700',
-    marginRight: 2,
+  spaceTxt: { marginLeft: 5, color: '#fff', fontSize: 13, fontWeight: '700' },
+  topIcon: { padding: 2 },
+  ipTxt: { position: 'absolute', right: PAD + 2, bottom: 76, color: '#fff', fontSize: 11, opacity: 0.9 },
+
+  /* 资料卡 */
+  card: {
+    marginHorizontal: PAD,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 14,
   },
-  userNickText: { fontSize: 17, color: '#1A1A1A', fontWeight: '600' },
-  vipChip: {
-    marginLeft: 8,
-    backgroundColor: '#FFD700',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  cardTop: { flexDirection: 'row', marginTop: -44 },
+  avatar: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 3,
+    borderColor: '#fff',
+    backgroundColor: SC.card,
   },
-  vipChipText: {
-    fontSize: 11,
-    color: '#8A4B00',
-    fontWeight: '700',
-  },
-  vipBadgeImg: {
-    width: 36,
-    height: 18,
-    marginLeft: 8,
-    resizeMode: 'contain',
-  },
-  userNickEditIcon: { width: 25, height: 25 },
-  userPhone: { fontSize: Metrics.fontSize12, marginTop: 6, color: '#555555' },
-  headerPortrait: { width: Metrics.px2dp(150), height: Metrics.px2dp(150), borderRadius: Metrics.px2dp(150) },
-  myHomeCont: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#EFDFBD', 
-    paddingVertical: 6, 
-    paddingLeft: 15, 
-    paddingRight: 3, 
-    borderTopLeftRadius: 20, 
-    borderBottomLeftRadius: 20 
-  },
-  myHomeContVip: {
-    backgroundColor: '#FFD700',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  myHomeText: { 
-    fontSize: Metrics.fontSize14, 
-    marginRight: 5, 
-    color: Colors.bai,
-    fontWeight: 'bold',
-  },
-  vipBadge: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  inviteIcon: { width: 25, height: 25 },
-  listIcon: { width: 30, height: 30 },
-  listIconTop: { width: 30, height: 30 },
-  listText: { fontSize: Metrics.fontSize14, color: Colors.hei2E, marginTop: 8 },
-  bottonListCont: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingHorizontal: 20, paddingVertical: 10 },
-  buttonList: { alignItems: 'center', width: Metrics.px2dp(120), },
-  buttonListTop: { alignItems: 'center', width: Metrics.px2dp(186), },
-  bolockCont: { marginTop: 10, backgroundColor: Colors.bai, borderRadius: 5, overflow: 'hidden', paddingBottom: 10 },
-  
-  // 列表模式样式
-  menuListContainer: {
-    marginTop: 10,
-    backgroundColor: Colors.bai,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  menuListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  avatarPh: { alignItems: 'center', justifyContent: 'center' },
+  cardRight: { flex: 1, marginLeft: 12, paddingTop: 44 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginTop: -2 },
+  name: { fontSize: 19, fontWeight: '800', color: '#1F1F28', flexShrink: 1 },
+  stats: { flexDirection: 'row', marginTop: 6 },
+  stat: { alignItems: 'center', marginRight: 22 },
+  statNum: { fontSize: 18, fontWeight: '800', color: '#1F1F28' },
+  statLab: { marginTop: 1, fontSize: 11, color: '#8A8A98' },
+  sign: { marginTop: 10, fontSize: 14, color: '#3B3B48', lineHeight: 20 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  chip: {
+    height: 22,
+    paddingHorizontal: 9,
+    borderRadius: 11,
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    minHeight: 60,
-  },
-  menuListLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuListIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 12,
-  },
-  menuListText: {
-    fontSize: Metrics.fontSize14,
-    color: Colors.hei2E,
-  },
-  menuListArrow: {
-    fontSize: 16,
-    color: Colors.huiCc,
-  },
-  menuListDivider: {
-    height: 1,
-    backgroundColor: Colors.huiF5,
-    marginLeft: 51, // 对齐文字，留出图标+间距的空间
-  },
-  donateCard: {
-    backgroundColor: Colors.bai,
-    borderRadius: 12,
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    borderWidth: 2,
-    borderColor: '#FFB6C1',
-    shadowColor: '#FFB6C1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  donateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  donateIcon: {
-    fontSize: 32,
-    marginRight: 15,
-  },
-  donateTextContainer: {
-    flex: 1,
-  },
-  donateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FF6B9D',
+    justifyContent: 'center',
+    marginRight: 8,
     marginBottom: 4,
   },
-  donateSubtitle: {
-    fontSize: 13,
-    color: '#999',
+  chipGray: { backgroundColor: '#F1F1F6' },
+  chipTxt: { fontSize: 12, color: '#fff', fontWeight: '600' },
+  tagBox: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F6F6FA',
+    borderRadius: 22,
+    paddingLeft: 14,
+    paddingRight: 8,
+    minHeight: 44,
   },
-  donateArrow: {
-    fontSize: 20,
-    color: '#FFB6C1',
+  tagWrap: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 8 },
+  tagTxt: { fontSize: 13, color: '#333', marginRight: 14, lineHeight: 20 },
+  tagEmpty: { fontSize: 12, color: '#A7A7B3', lineHeight: 20 },
+  tagPlus: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
   },
+  loginRow: { flexDirection: 'row', alignItems: 'center', marginTop: -44 },
+  loginPill: { backgroundColor: SC.rose, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginTop: 40 },
+  loginPillTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  /* 快捷入口 */
+  entryCard: { marginTop: 12, flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 14 },
+  entry: { flex: 1, alignItems: 'center' },
+  entryIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryTxt: { marginTop: 7, fontSize: 11, color: '#333' },
+
+  /* 瞬间 */
+  momentBox: { marginTop: 12, backgroundColor: '#fff' },
+  mTabs: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6 },
+  mTab: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
+  mTabTxt: { fontSize: 17, color: '#8A8A98', fontWeight: '700' },
+  mTabOn: { color: '#1F1F28' },
+  mTabNum: { fontSize: 12, color: '#8A8A98', fontWeight: '400' },
+  mBar: { marginTop: 6, width: 22, height: 3, borderRadius: 2, backgroundColor: 'transparent' },
+  mBarOn: { backgroundColor: SC.rose },
+  mHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: PAD + 2,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#EEE',
+  },
+  mAll: { fontSize: 15, color: '#1F1F28' },
+  say: { paddingHorizontal: PAD + 2, paddingVertical: 14, borderTopWidth: 8, borderTopColor: '#F5F6F8' },
+  sayHead: { flexDirection: 'row', alignItems: 'center' },
+  sayTime: { fontSize: 13, color: '#A7A7B3' },
+  sayWho: { marginLeft: 10, fontSize: 13, color: '#6F6FF0' },
+  sayText: { marginTop: 8, fontSize: 16, color: '#1F1F28', lineHeight: 23 },
+  sayImgs: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  sayImg: { width: THUMB, height: THUMB, borderRadius: 6, marginRight: 4, marginBottom: 4, backgroundColor: '#EEE' },
+  sayFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  sayCnt: { marginLeft: 4, fontSize: 12, color: '#A7A7B3' },
+  emptyBox: { alignItems: 'center', paddingVertical: 36 },
+  emptyTxt: { fontSize: 14, color: '#B7B7C2' },
+  noMore: { textAlign: 'center', fontSize: 14, color: '#C0C0CA', paddingVertical: 28 },
+
+  /* 服务 */
+  serviceCard: { marginTop: 12, marginHorizontal: PAD, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden' },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SC.line,
+  },
+  listRowLast: { borderBottomWidth: 0 },
+  listLeft: { flexDirection: 'row', alignItems: 'center' },
+  listIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 11,
+    backgroundColor: 'rgba(226,60,254,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  listTxt: { fontSize: 14, color: SC.ink, fontWeight: '600' },
+
+  foot: { textAlign: 'center', marginTop: 24, marginBottom: 12, fontSize: 12, color: '#B7B7C2' },
 });

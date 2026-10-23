@@ -2,7 +2,7 @@ import * as React from 'react';
 import { StyleSheet, Platform, NativeModules, BackHandler, Alert, Linking, Image, Modal, TouchableOpacity,  View, Text, DeviceEventEmitter} from 'react-native';
 // 配置组件
 import { connect } from 'react-redux';
-import { NavigationContainer, useNavigation, } from '@react-navigation/native';
+import { NavigationContainer, useNavigation, CommonActions } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators  } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
@@ -16,12 +16,16 @@ import { isIPhoneXFooter } from "./utils/iphoneXHelper";
 import { initializeApp, checkUpdateStatus } from './utils/AppInitService';
 
 // 首页类路由
-import HomeScreen from "./view/Home"; // 首页
-import FoundScreen from "./view/Found"; // 发现
 import PublishScreen from "./view/Publish"; // 发布
-import BaibaoScreen from "./view/Baibao"; // 百宝箱
-import DynamicScreen from "./view/Dynamic"; // 动态
 import UsersScreen from "./view/Users"; // 用户
+import MomentsScreen from "./view/social/Moments"; // 首页·动态 / 附近
+import MakeFriendScreen from "./view/social/MakeFriend"; // 扩列（微信盲盒 + 寻宝）
+import PlayScreen from "./view/social/Play"; // 搭子
+import MessageScreen from "./view/social/Message"; // 消息
+import Icons from 'react-native-vector-icons/AntDesign';
+import { connectChatWs, disconnectChatWs } from './utils/chatWs';
+import { startChatBootstrap, stopChatBootstrap } from './utils/chatBootstrap';
+import { SC } from './theme/social';
 
 // 登录类路由
 import LoginScreen from "./view/user/Login"; // 登录
@@ -39,28 +43,18 @@ const Stack = createStackNavigator();
 
 
 
-let iconPath = './asserts/images/tabbar/';
-let routeIcon = [
-  {
-    normal: require(iconPath + 'icon_main_tab_home_unselect.png'),
-    selected: require(iconPath + 'icon_main_tab_home_select.png')
-  }, {
-    normal: require(iconPath + 'icon_main_tab_found_unselect.png'),
-    selected: require(iconPath + 'icon_main_tab_found_select.png')
-  },
-  {
-    normal: require(iconPath + 'icon_main_tab_sub_unselect.png'),
-    selected: require(iconPath + 'icon_main_tab_sub_unselect.png')
-  },
-  {
-    normal: require(iconPath + 'icon_main_tab_hot_unselect.png'),
-    selected: require(iconPath + 'icon_main_tab_hot_select.png')
-  },
-  {
-    normal: require(iconPath + 'icon_main_tab_mine_unselect.png'),
-    selected: require(iconPath + 'icon_main_tab_mine_select.png')
-  },
-]
+/** 底部五栏：首页（动态/附近）/ 扩列（微信盲盒+寻宝）/ 搭子（居中）/ 消息 / 我的 */
+const TAB_ICONS = {
+  Home: 'home',
+  Match: 'hearto',
+  Message: 'message1',
+  Play: 'rocket1',
+  Users: 'user',
+};
+const TAB_OFF = '#8A8F99';
+
+/** 供自定义 TabBar 读未读角标 */
+let appReduxState = null;
 
 
 function renderScreen() {
@@ -156,9 +150,10 @@ function MyTabBar({ state, descriptors, navigation }) {
     <View style={{
       flexDirection: 'row',
       backgroundColor: '#fff',
-      paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-      borderTopWidth: 0.5,
-      borderTopColor: '#E5E5E5'
+      paddingTop: 14,
+      paddingBottom: isIPhoneXFooter(Platform.OS === 'ios' ? 12 : 8),
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: SC.line,
     }}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
@@ -172,12 +167,6 @@ function MyTabBar({ state, descriptors, navigation }) {
         const isFocused = state.index === index;
 
         const onPress = () => {
-          // 如果是发布按钮，通过事件触发弹窗
-          if (route.name === 'Publish') {
-            DeviceEventEmitter.emit('showPublishModal');
-            return;
-          }
-
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -189,6 +178,24 @@ function MyTabBar({ state, descriptors, navigation }) {
           }
         };
 
+        if (route.name === 'Play') {
+          return (
+            <TouchableOpacity
+              key={index}
+              accessibilityRole="button"
+              accessibilityLabel="搭子"
+              onPress={onPress}
+              activeOpacity={0.85}
+              style={Styles.tabItem}
+            >
+              <View style={[Styles.playBubble, !isFocused && Styles.playBubbleOff]}>
+                <Icons name={TAB_ICONS.Play} size={22} color="#fff" />
+                <Text style={Styles.playTxt}>{label}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }
+
         return (
           <TouchableOpacity
             key={index}
@@ -197,15 +204,25 @@ function MyTabBar({ state, descriptors, navigation }) {
             accessibilityLabel={options.tabBarAccessibilityLabel}
             testID={options.tabBarTestID}
             onPress={onPress}
-            style={{ flex: 1, alignItems: 'center' }}
+            style={Styles.tabItem}
           >
-            <View>
-              <Image
-                style={Styles.tabIcon}
-                source={isFocused ? routeIcon[index].selected : routeIcon[index].normal}
+            <View style={Styles.iconWrap}>
+              <Icons
+                name={TAB_ICONS[route.name] || TAB_ICONS.Home}
+                size={25}
+                color={isFocused ? SC.rose : TAB_OFF}
               />
+              {route.name === 'Message' && (appReduxState?.global?.totalUnreadCount || 0) > 0 ? (
+                <View style={Styles.badge}>
+                  <Text style={Styles.badgeTxt}>
+                    {(appReduxState.global.totalUnreadCount || 0) > 99
+                      ? '99+'
+                      : appReduxState.global.totalUnreadCount}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-            <Text style={[Styles.tabLabel, { color: isFocused ? '#F9BBC6' : '#999999' }]}>
+            <Text style={[Styles.tabLabel, { color: isFocused ? SC.rose : TAB_OFF }]}>
               {label}
             </Text>
           </TouchableOpacity>
@@ -224,33 +241,33 @@ function MainTabCom() {
     >
       <Tab.Screen
         name={"Home"}
-        component={HomeScreen}
+        component={MomentsScreen}
         options={{
           title: "首页",
           headerShown: false
         }}
       />
       <Tab.Screen
-        name={"Found"}
-        component={FoundScreen}
+        name={"Match"}
+        component={MakeFriendScreen}
         options={{
-          title: "棋盘",
+          title: "扩列",
           headerShown: false
         }}
       />
       <Tab.Screen
-        name={"Baibao"}
-        component={BaibaoScreen}
+        name={"Play"}
+        component={PlayScreen}
         options={{
-          title: "百宝箱",
-          headerShown: false,
+          title: "搭子",
+          headerShown: false
         }}
       />
       <Tab.Screen
-        name={"Dynamic"}
-        component={DynamicScreen}
+        name={"Message"}
+        component={MessageScreen}
         options={{
-          title: "动态",
+          title: "消息",
           headerShown: false
         }}
       />
@@ -287,7 +304,44 @@ class Root extends React.Component {
     }
     // 监听发布弹窗事件
     this.publishListener = DeviceEventEmitter.addListener('showPublishModal', this.handlePublishPress);
+    // Token 失效：静默 reset 到登录页（HttpPost 已清 token / LOGOUT）
+    this.loginListener = DeviceEventEmitter.addListener('toLogin', () => {
+      disconnectChatWs();
+      stopChatBootstrap();
+      navigationRef.current?.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        })
+      );
+    });
+
+    this.bindChatIfLogged();
   }
+
+  componentDidUpdate(prevProps) {
+    appReduxState = { global: this.props.global, user: this.props.user };
+    const was = prevProps.user?.isLogged;
+    const now = this.props.user?.isLogged;
+    const prevUid = prevProps.user?.userId;
+    const uid = this.props.user?.userId;
+    if (now && uid && (!was || String(prevUid) !== String(uid))) {
+      this.bindChatIfLogged();
+    }
+    if (was && !now) {
+      disconnectChatWs();
+      stopChatBootstrap();
+    }
+  }
+
+  bindChatIfLogged = () => {
+    const uid = this.props.user?.userId;
+    if (!this.props.user?.isLogged || !uid) return;
+    startChatBootstrap(uid, (totalUnreadCount) => {
+      this.props.setGlobalInfo({ totalUnreadCount });
+    });
+    connectChatWs(String(uid));
+  };
 
   // 检查 App 版本
   async checkAppVersion() {
@@ -322,6 +376,11 @@ class Root extends React.Component {
     if (this.publishListener && this.publishListener.remove) {
       this.publishListener.remove();
     }
+    if (this.loginListener && this.loginListener.remove) {
+      this.loginListener.remove();
+    }
+    disconnectChatWs();
+    stopChatBootstrap();
   }
 
   // 做一些跳转事情
@@ -406,6 +465,7 @@ class Root extends React.Component {
   };
 
   render() {
+    appReduxState = { global: this.props.global, user: this.props.user };
     return (
       <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
@@ -594,10 +654,44 @@ const mapDispatchToProps = dispatch => ({
 export default connect(mapStateToProps, mapDispatchToProps)(Root)
 
 const Styles = StyleSheet.create({
-  tabIcon: {
-    width: px2dp(48),
-    height: px2dp(44),
-    marginTop: px2dp(6),
+  tabItem: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  iconWrap: { height: 30, alignItems: 'center', justifyContent: 'center' },
+  /* 居中「搭子」：突出的圆形按钮 */
+  playBubble: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    marginTop: -12,
+    marginBottom: 2,
+    backgroundColor: SC.rose,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+    elevation: 6,
+    shadowColor: SC.rose,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  playBubbleOff: { backgroundColor: '#B07AF0' },
+  playTxt: { marginTop: 1, color: '#fff', fontSize: 10, fontWeight: '800' },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#E23CFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeTxt: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   tabLabel: {
     marginTop: px2dp(1),

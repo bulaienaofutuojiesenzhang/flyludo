@@ -50,27 +50,16 @@ class DareMode extends React.Component {
 
   // 编辑游戏
   handleEdit = () => {
-    console.log('===== handleEdit called =====');
-    console.log('user:', this.props.user);
-    
     const isVip = this.props.user?.isVip || false;
-    console.log('isVip:', isVip);
-    
-    // 强制显示 VIP 弹窗进行测试
-    console.log('showing vip modal');
-    this.setState({ showVipModal: true }, () => {
-      console.log('setState callback - showVipModal:', this.state.showVipModal);
-    });
-    
-    if (isVip) {
-      // 会员可以编辑
-      const { gameData } = this.state;
-      console.log('navigating to CreateQuestion with gameData:', gameData);
-      this.props.navigation.navigate('CreateQuestion', {
-        type: 'damaoxian',
-        editData: gameData
-      });
+    if (!isVip) {
+      this.props.navigation.navigate('Recharge');
+      return;
     }
+    const { gameData } = this.state;
+    this.props.navigation.navigate('CreateQuestion', {
+      type: 'damaoxian',
+      editData: gameData,
+    });
   }
 
   // 升级会员

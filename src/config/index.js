@@ -12,4 +12,7 @@ module.exports = {
     Version: Version,
     API_PATH: Config[Env].API_PATH,
     File_PATH: Config[Env].File_PATH,
+    CHAT_WS_PATH: Config[Env].CHAT_WS_PATH || '',
+    CHAT_APP: Config[Env].CHAT_APP || 'flyludo',
+    CHAT_SECRET: Config[Env].CHAT_SECRET || '',
 };
