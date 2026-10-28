@@ -7,6 +7,8 @@ const Env = require('./Env');
 const Config = require('./Config.env.json');
 const Version = require('./Version.json');
 
+const z7OpenApi = require('./z7OpenApi');
+
 module.exports = {
     Env: Env,
     Version: Version,
@@ -15,4 +17,5 @@ module.exports = {
     CHAT_WS_PATH: Config[Env].CHAT_WS_PATH || '',
     CHAT_APP: Config[Env].CHAT_APP || 'flyludo',
     CHAT_SECRET: Config[Env].CHAT_SECRET || '',
+    z7OpenApi,
 };

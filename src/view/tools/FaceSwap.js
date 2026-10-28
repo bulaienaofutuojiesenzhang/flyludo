@@ -14,14 +14,18 @@ import { View } from 'native-base';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { connect } from 'react-redux';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
 import { WebView } from 'react-native-webview';
 import Video from 'react-native-video';
 
 import { Loading, ToastService, AppDialog } from '../../component';
 import { Colors } from '../../theme';
-import Http from '../../utils/HttpPost';
 import { uploadAiFile, getResultKind } from '../../utils/aiUpload';
+import {
+  submitFaceswapDirect,
+  pollFaceswapTask,
+  billFinish,
+} from '../../utils/aiDirect';
 import {
   requestMediaPermission,
   normalizeLocalImageUri,
@@ -73,49 +77,42 @@ class FaceSwap extends Component {
     }
 
     const isVideo = mediaType === 'video';
-    launchImageLibrary(
-      {
+    try {
+      // 与头像上传一致：crop-picker 返回本地可读 path，避免 content:// 上传失败
+      const image = await ImagePicker.openPicker({
         mediaType: isVideo ? 'video' : 'photo',
-        quality: 0.9,
-        selectionLimit: 1,
-        maxWidth: isVideo ? undefined : 2048,
-        maxHeight: isVideo ? undefined : 2048,
-      },
-      (response) => {
-        if (response.didCancel) return;
-        if (response.errorCode) {
-          ToastService.warn(
-            response.errorCode === 'permission'
-              ? '请在系统设置中允许访问相册'
-              : response.errorMessage || '无法打开相册'
-          );
-          return;
-        }
-        const asset = response.assets && response.assets[0];
-        const rawUri = asset && (asset.fileCopyUri || asset.uri);
-        const uri = normalizeLocalImageUri(rawUri);
-        if (!uri) {
-          ToastService.warn('未获取到素材，请重试');
-          return;
-        }
-        this.setState({
-          [field]: {
-            ...asset,
-            uri,
-            type:
-              asset.type ||
-              (isVideo ? 'video/mp4' : 'image/jpeg'),
-            fileName:
-              asset.fileName ||
-              asset.name ||
-              `${isVideo ? 'video' : 'photo'}_${Date.now()}.${
-                isVideo ? 'mp4' : 'jpg'
-              }`,
-          },
-          resultUrl: '',
-        });
+        compressImageQuality: isVideo ? 1 : 0.9,
+        compressImageMaxWidth: isVideo ? undefined : 2048,
+        compressImageMaxHeight: isVideo ? undefined : 2048,
+        cropping: false,
+      });
+      if (!image) return;
+      const rawUri = image.path || image.sourceURL;
+      const uri = normalizeLocalImageUri(rawUri);
+      if (!uri) {
+        ToastService.warn('未获取到素材，请重试');
+        return;
       }
-    );
+      this.setState({
+        [field]: {
+          uri,
+          path: image.path,
+          type: image.mime || (isVideo ? 'video/mp4' : 'image/jpeg'),
+          mime: image.mime,
+          fileName:
+            image.filename ||
+            `${isVideo ? 'video' : 'photo'}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+          width: image.width,
+          height: image.height,
+        },
+        resultUrl: '',
+      });
+    } catch (e) {
+      if (e?.code === 'E_PICKER_CANCELLED' || /cancel/i.test(String(e?.message || ''))) {
+        return;
+      }
+      ToastService.warn(e?.message || '无法打开相册');
+    }
   };
 
   getYuanbao = () => Number(this.props.user?.yuanbao) || 0;
@@ -151,30 +148,28 @@ class FaceSwap extends Component {
       const targetUrl = await uploadAiFile(targetAsset, {
         isVideo: mode === 'video',
       });
-      const res = await Http('post', '/ai-proxy/faceswap/submit', {
+      const data = await submitFaceswapDirect({
         type: mode,
         sourceUrl,
         targetUrl,
+        externalUserId: String(this.props.user?._id || this.props.user?.id || ''),
       });
       this.setState({ isLoading: false });
-      if (res.code === 200 && res.data?.taskId) {
-        const nextYb = res.data.yuanbao ?? res.data.balance;
-        if (nextYb != null) {
-          this.props.setUserInfo({ yuanbao: nextYb });
-        }
-        this.setState({ processing: true });
-        ToastService.success('支付成功，任务处理中...');
-        this.startPoll(res.data.taskId);
-      } else if (res.code === 600 || res.code === 3001) {
+      if (data?.yuanbao != null) {
+        this.props.setUserInfo({ yuanbao: data.yuanbao });
+      }
+      this.setState({ processing: true });
+      ToastService.success('支付成功，任务处理中...');
+      this.startPoll(data.taskId);
+    } catch (e) {
+      this.setState({ isLoading: false });
+      if (e?.code === 600 || e?.code === 3001) {
         const go = await AppDialog.diamondInsufficient({
           message: `本次换脸需要 ${FACESWAP_COST[mode]} 钻石，充值后就能继续玩。`,
         });
         if (go) this.props.navigation.push('Diamond');
-      } else {
-        ToastService.error(res.message || res.msg || '提交失败');
+        return;
       }
-    } catch (e) {
-      this.setState({ isLoading: false });
       ToastService.error(e.message || '提交失败');
     }
   };
@@ -191,12 +186,11 @@ class FaceSwap extends Component {
         return;
       }
       try {
-        const res = await Http('post', '/ai-proxy/faceswap/task', {
-          task_id: taskId,
-        });
-        if (res.code === 200 && res.data) {
+        const res = await pollFaceswapTask(taskId);
+        if (Number(res?.code) === 200 && res.data) {
           if (res.data.status === 'completed') {
             this.clearPoll();
+            await billFinish(taskId, 'completed');
             if (res.data.resultUrl) {
               this.setState({
                 processing: false,
@@ -210,11 +204,12 @@ class FaceSwap extends Component {
           } else if (res.data.status === 'failed') {
             this.clearPoll();
             this.setState({ processing: false });
-            const refunded = !!(res.data.localRefunded || res.data.refunded);
+            const finish = await billFinish(taskId, 'failed');
+            const refunded = !!(finish?.data?.localRefunded || res.data.refunded);
             if (refunded) {
               const nextYb =
-                res.data.yuanbao != null
-                  ? res.data.yuanbao
+                finish?.data?.yuanbao != null
+                  ? finish.data.yuanbao
                   : this.getYuanbao() + FACESWAP_COST[this.state.mode];
               this.props.setUserInfo({ yuanbao: nextYb });
               ToastService.diamond('换脸失败，钻石已退回');

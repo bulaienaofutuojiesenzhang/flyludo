@@ -12,7 +12,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Linking,
   ActivityIndicator,
 } from 'react-native';
@@ -23,6 +22,8 @@ import Feather from 'react-native-vector-icons/Feather';
 import Http from '../../utils/HttpPost';
 import { locateMe } from '../../utils/location';
 import { SC } from '../../theme/social';
+import { getAvatarSource } from '../../utils/avatar';
+import { AppDialog } from '../../component';
 
 import CachedImage, { preloadImages } from '../../component/CachedImage';
 const { width: W } = Dimensions.get('window');
@@ -131,10 +132,18 @@ class Moments extends React.Component {
     return !!this.props.route?.params?.mine;
   }
 
-  componentDidMount() {
+  applyStatusBar = () => {
     StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+    }
+  };
+
+  componentDidMount() {
+    this.applyStatusBar();
     this.focusUnsub = this.props.navigation.addListener('focus', () => {
-      StatusBar.setBarStyle('dark-content');
+      this.applyStatusBar();
       this.refresh();
     });
     this.refresh();
@@ -319,20 +328,19 @@ class Moments extends React.Component {
     });
   };
 
-  confirmDelete = (item) => {
-    Alert.alert('删除动态', '删除后不可恢复，确定吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () =>
-          Http('post', '/social/say/deletePublishSay', { id: item._id }).then((res) => {
-            if (res?.code === 200) {
-              this.setState((s) => ({ says: s.says.filter((x) => x._id !== item._id) }));
-            }
-          }),
-      },
-    ]);
+  confirmDelete = async (item) => {
+    const ok = await AppDialog.confirm({
+      title: '删除动态',
+      message: '删除后不可恢复，确定吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+    });
+    if (!ok) return;
+    Http('post', '/social/say/deletePublishSay', { id: item._id }).then((res) => {
+      if (res?.code === 200) {
+        this.setState((s) => ({ says: s.says.filter((x) => x._id !== item._id) }));
+      }
+    });
   };
 
   /* —— 评论 —— */
@@ -398,13 +406,10 @@ class Moments extends React.Component {
         <View style={styles.say}>
           <View style={styles.sayHead}>
             <Pressable onPress={() => this.openUser(item)}>
-              {item.myFace ? (
-                <CachedImage source={{ uri: item.myFace }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPh]}>
-                  <Icons name="user" size={22} color={SC.roseSoft} />
-                </View>
-              )}
+              <CachedImage
+                source={getAvatarSource(item.myFace, item.gender)}
+                style={styles.avatar}
+              />
             </Pressable>
             <View style={styles.sayWho}>
               <Text
@@ -488,13 +493,10 @@ class Moments extends React.Component {
       .join(' · ');
     return (
       <Pressable style={styles.nearRow} onPress={() => this.openUser(item)}>
-        {item.myFace ? (
-          <CachedImage source={{ uri: item.myFace }} style={styles.nearAvatar} />
-        ) : (
-          <View style={[styles.nearAvatar, styles.avatarPh]}>
-            <Icons name="user" size={26} color={SC.roseSoft} />
-          </View>
-        )}
+        <CachedImage
+          source={getAvatarSource(item.myFace, item.gender)}
+          style={styles.nearAvatar}
+        />
         <View style={styles.nearMid}>
           <View style={styles.nameLine}>
             <Text
@@ -534,6 +536,15 @@ class Moments extends React.Component {
   );
 
   renderHeader = () => {
+    const anon = (
+      <Pressable
+        style={styles.anonBtn}
+        onPress={() => this.requireLogin(() => this.props.navigation.navigate('AnonymousWall'))}
+      >
+        <Icons name="eyeo" size={14} color={SC.rose} />
+        <Text style={styles.anonTxt}>匿名墙</Text>
+      </Pressable>
+    );
     const publish = (
       <Pressable
         style={styles.pubBtn}
@@ -565,6 +576,7 @@ class Moments extends React.Component {
           <Text style={[styles.tab, this.state.tab === 1 && styles.tabOn]}>附近</Text>
         </Pressable>
         <View style={styles.flex} />
+        {anon}
         {publish}
       </View>
     );
@@ -665,13 +677,10 @@ class Moments extends React.Component {
               ListEmptyComponent={<Text style={styles.cmtEmpty}>还没有评论，来抢沙发</Text>}
               renderItem={({ item: c }) => (
                 <View style={styles.cmt}>
-                  {c.myFace ? (
-                    <CachedImage source={{ uri: c.myFace }} style={styles.cmtAvatar} />
-                  ) : (
-                    <View style={[styles.cmtAvatar, styles.avatarPh]}>
-                      <Icons name="user" size={14} color={SC.roseSoft} />
-                    </View>
-                  )}
+                  <CachedImage
+                    source={getAvatarSource(c.myFace, c.gender)}
+                    style={styles.cmtAvatar}
+                  />
                   <View style={styles.cmtBody}>
                     <Text style={styles.cmtName}>{c.nickName || c.userId}</Text>
                     <Text style={styles.cmtTxt}>{c.content}</Text>
@@ -707,7 +716,7 @@ class Moments extends React.Component {
   render() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
         {this.renderHeader()}
         <View style={styles.flex}>{this.renderList()}</View>
         {this.renderCommentSheet()}
@@ -734,6 +743,16 @@ const styles = StyleSheet.create({
   tabOn: { fontSize: 25, fontWeight: '900', color: SC.ink },
   backBtn: { width: 36, height: 36, justifyContent: 'center' },
   mineTitle: { fontSize: 20, fontWeight: '900', color: SC.ink },
+  anonBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    backgroundColor: 'rgba(226,60,254,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  anonTxt: { marginLeft: 4, fontSize: 13, fontWeight: '700', color: SC.rose },
   pubBtn: {
     flexDirection: 'row',
     alignItems: 'center',

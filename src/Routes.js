@@ -33,6 +33,7 @@ import MyFocus from "./view/user/MyFocus";
 import InviteFriends from "./view/user/InviteFriends";
 import GuanyuYika from "./view/user/GuanyuYika";
 import Setting from "./view/user/Setting";
+import MessageNotify from "./view/user/MessageNotify";
 import Recharge from "./view/user/Recharge";
 import Diamond from "./view/user/Diamond";
 import DiamondRecords from "./view/user/DiamondRecords";
@@ -161,7 +162,7 @@ export default [
   {
     name: 'Qiqiu',
     screen: Qiqiu,
-    title: '真心气球',
+    title: '漂流瓶',
   },
   {
     name: 'Treasure',
@@ -372,19 +373,12 @@ export default [
     name: 'MyHome',
     screen: MyHome,
     options: {
-      title: "",
+      title: '编辑资料',
+      headerShown: false,
       headerBackTitle: '',
       gestureEnabled: false,
       presentation: 'modal',
       animation: 'slide_from_right',
-      headerStyle: {
-        elevation: 0, // Android 去掉头部阴影
-        shadowOpacity: 0, // iOS 去掉头部阴影
-        borderBottomWidth: 0, // iOS 去掉头部底部线
-        backgroundColor: '#3A3A3C',
-      },
-      headerTitleAlign: 'center',
-      headerTintColor: 'white',
     }
   },
 
@@ -567,15 +561,15 @@ export default [
     name: 'InviteFriends',
     screen: InviteFriends,
     options: {
-      title: "邀请好友",
+      title: "邀请有礼",
       headerBackTitle: '',
-      gestureEnabled: false,
-      presentation: 'modal',
+      gestureEnabled: true,
+      presentation: 'card',
       animation: 'slide_from_right',
       headerStyle: {
-        elevation: 0, // Android 去掉头部阴影
-        shadowOpacity: 0, // iOS 去掉头部阴影
-        borderBottomWidth: 0, // iOS 去掉头部底部线
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
       },
       headerTitleAlign: 'center',
     }
@@ -672,6 +666,24 @@ export default [
   },
 
   {
+    name: 'MessageNotify',
+    screen: MessageNotify,
+    options: {
+      title: "消息通知",
+      headerBackTitle: '',
+      gestureEnabled: true,
+      presentation: 'card',
+      animation: 'slide_from_right',
+      headerStyle: {
+        elevation: 0,
+        shadowOpacity: 0,
+        borderBottomWidth: 0,
+      },
+      headerTitleAlign: 'center',
+    }
+  },
+
+  {
     name: 'Recharge',
     screen: Recharge,
     options: {
@@ -703,7 +715,7 @@ export default [
     name: 'DiamondRecords',
     screen: DiamondRecords,
     options: {
-      title: "充值明细",
+      title: "钻石记录",
       headerShown: false,
       headerBackTitle: '',
       gestureEnabled: true,

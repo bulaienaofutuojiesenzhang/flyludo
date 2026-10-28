@@ -1,9 +1,30 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView, StatusBar, Text, TouchableOpacity, ScrollView, TextInput, View as RNView, Share } from 'react-native';
+import {
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  View as RNView,
+  Share,
+} from 'react-native';
 import { View } from 'native-base';
 import Icons from 'react-native-vector-icons/AntDesign';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../theme';
+
+const ACCENT = '#5B9A8B';
+const ACCENT_SOFT = 'rgba(91, 154, 139, 0.12)';
+
+const QUICK_TYPES = [
+  { key: 'url', label: '网址', icon: 'link-outline', tint: '#5B9A8B' },
+  { key: 'phone', label: '电话', icon: 'call-outline', tint: '#6A8CAF' },
+  { key: 'email', label: '邮箱', icon: 'mail-outline', tint: '#C97BA5' },
+  { key: 'wifi', label: 'WiFi', icon: 'wifi-outline', tint: '#C19769' },
+];
 
 class QRCodeGenerator extends React.Component {
   constructor(props) {
@@ -16,7 +37,6 @@ class QRCodeGenerator extends React.Component {
     this.qrCodeRef = null;
   }
 
-  // 生成二维码
   generateQRCode = () => {
     if (!this.state.inputText.trim()) {
       alert('请输入内容');
@@ -25,7 +45,6 @@ class QRCodeGenerator extends React.Component {
     this.setState({ qrText: this.state.inputText.trim() });
   };
 
-  // 清空
   clearQRCode = () => {
     this.setState({
       inputText: '',
@@ -33,7 +52,6 @@ class QRCodeGenerator extends React.Component {
     });
   };
 
-  // 分享二维码
   shareQRCode = () => {
     if (!this.state.qrText) {
       alert('请先生成二维码');
@@ -45,7 +63,6 @@ class QRCodeGenerator extends React.Component {
     });
   };
 
-  // 快速填充示例
   quickFill = (type) => {
     let text = '';
     switch (type) {
@@ -65,38 +82,43 @@ class QRCodeGenerator extends React.Component {
     this.setState({ inputText: text });
   };
 
+  renderSectionHead = (icon, title) => (
+    <RNView style={styles.sectionHead}>
+      <RNView style={styles.sectionIcon}>
+        <Ionicons name={icon} size={16} color={ACCENT} />
+      </RNView>
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </RNView>
+  );
+
   render() {
     const { inputText, qrText, qrSize } = this.state;
 
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="white" />
-        
-        {/* 顶部导航 */}
+
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backBtn} 
+          <TouchableOpacity
+            style={styles.backBtn}
             onPress={() => this.props.navigation.goBack()}
           >
-            <Icons name="left" size={24} color="#333" />
+            <Icons name="left" size={22} color="#333" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>二维码生成</Text>
-          {qrText && (
-            <TouchableOpacity 
-              style={styles.shareBtn} 
-              onPress={this.shareQRCode}
-            >
-              <Icons name="sharealt" size={20} color="#666" />
+          {qrText ? (
+            <TouchableOpacity style={styles.shareBtn} onPress={this.shareQRCode}>
+              <Ionicons name="share-outline" size={22} color="#666" />
             </TouchableOpacity>
+          ) : (
+            <RNView style={{ width: 40 }} />
           )}
-          {!qrText && <RNView style={{ width: 40 }} />}
         </View>
 
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            {/* 输入区域 */}
             <View style={styles.inputSection}>
-              <Text style={styles.sectionTitle}>📝 输入内容</Text>
+              {this.renderSectionHead('create-outline', '输入内容')}
               <TextInput
                 style={styles.textInput}
                 value={inputText}
@@ -106,77 +128,64 @@ class QRCodeGenerator extends React.Component {
                 multiline
                 numberOfLines={4}
               />
-              
-              {/* 快速填充按钮 */}
+
               <View style={styles.quickSection}>
-                <Text style={styles.quickLabel}>快速填充：</Text>
+                <Text style={styles.quickLabel}>快速填充</Text>
                 <View style={styles.quickButtons}>
-                  <TouchableOpacity
-                    style={styles.quickBtn}
-                    onPress={() => this.quickFill('url')}
-                  >
-                    <Text style={styles.quickBtnText}>🌐 网址</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.quickBtn}
-                    onPress={() => this.quickFill('phone')}
-                  >
-                    <Text style={styles.quickBtnText}>📞 电话</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.quickBtn}
-                    onPress={() => this.quickFill('email')}
-                  >
-                    <Text style={styles.quickBtnText}>✉️ 邮箱</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.quickBtn}
-                    onPress={() => this.quickFill('wifi')}
-                  >
-                    <Text style={styles.quickBtnText}>📶 WiFi</Text>
-                  </TouchableOpacity>
+                  {QUICK_TYPES.map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={styles.quickBtn}
+                      onPress={() => this.quickFill(item.key)}
+                      activeOpacity={0.75}
+                    >
+                      <RNView style={[styles.quickIconWrap, { backgroundColor: `${item.tint}18` }]}>
+                        <Ionicons name={item.icon} size={18} color={item.tint} />
+                      </RNView>
+                      <Text style={styles.quickBtnText}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
             </View>
 
-            {/* 生成按钮 */}
             <View style={styles.buttonsRow}>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.generateBtn]}
                 onPress={this.generateQRCode}
+                activeOpacity={0.85}
               >
-                <Icons name="qrcode" size={20} color={Colors.bai} />
+                <Ionicons name="qr-code-outline" size={20} color="#fff" />
                 <Text style={styles.actionBtnText}>生成二维码</Text>
               </TouchableOpacity>
-              
-              {qrText && (
+
+              {!!qrText && (
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.clearBtn]}
                   onPress={this.clearQRCode}
+                  activeOpacity={0.85}
                 >
-                  <Icons name="delete" size={20} color={Colors.bai} />
+                  <Ionicons name="trash-outline" size={18} color="#fff" />
                   <Text style={styles.actionBtnText}>清空</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* 二维码显示区域 */}
-            {qrText && (
+            {!!qrText && (
               <View style={styles.qrSection}>
-                <Text style={styles.sectionTitle}>✨ 二维码预览</Text>
+                {this.renderSectionHead('scan-outline', '二维码预览')}
                 <View style={styles.qrContainer}>
                   <QRCode
                     value={qrText}
                     size={qrSize}
-                    color="#000"
+                    color="#1A1A1A"
                     backgroundColor="#fff"
                     getRef={(ref) => (this.qrCodeRef = ref)}
                   />
                 </View>
-                
-                {/* 二维码内容显示 */}
+
                 <View style={styles.qrContentSection}>
-                  <Text style={styles.qrContentLabel}>内容：</Text>
+                  <Text style={styles.qrContentLabel}>内容</Text>
                   <Text style={styles.qrContentText} numberOfLines={3}>
                     {qrText}
                   </Text>
@@ -184,14 +193,13 @@ class QRCodeGenerator extends React.Component {
               </View>
             )}
 
-            {/* 提示信息 */}
             <View style={styles.tipSection}>
-              <Text style={styles.tipTitle}>💡 使用提示</Text>
-              <Text style={styles.tipText}>• 支持文本、网址、电话、邮箱等多种格式</Text>
-              <Text style={styles.tipText}>• WiFi格式: WIFI:T:类型;S:名称;P:密码;;</Text>
-              <Text style={styles.tipText}>• 电话格式: tel:手机号</Text>
-              <Text style={styles.tipText}>• 邮箱格式: mailto:邮箱地址</Text>
-              <Text style={styles.tipText}>• 点击分享按钮可分享二维码内容</Text>
+              {this.renderSectionHead('information-circle-outline', '使用提示')}
+              <Text style={styles.tipText}>支持文本、网址、电话、邮箱等多种格式</Text>
+              <Text style={styles.tipText}>WiFi：WIFI:T:类型;S:名称;P:密码;;</Text>
+              <Text style={styles.tipText}>电话：tel:手机号</Text>
+              <Text style={styles.tipText}>邮箱：mailto:邮箱地址</Text>
+              <Text style={styles.tipText}>生成后可点右上角分享内容</Text>
             </View>
           </View>
         </ScrollView>
@@ -203,144 +211,161 @@ class QRCodeGenerator extends React.Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F7F8F6',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: Colors.bai,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#EAEAEA',
   },
   backBtn: {
-    padding: 5,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   shareBtn: {
-    padding: 5,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#2A2A2A',
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 32,
   },
   inputSection: {
     backgroundColor: Colors.bai,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  textInput: {
-    backgroundColor: '#F8F9FA',
+  sectionIcon: {
+    width: 28,
+    height: 28,
     borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+    backgroundColor: ACCENT_SOFT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2A2A2A',
+  },
+  textInput: {
+    backgroundColor: '#F7F8F6',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
     color: '#333',
     minHeight: 100,
     textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E4E6E3',
   },
   quickSection: {
-    marginTop: 15,
+    marginTop: 14,
   },
   quickLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 10,
   },
   quickButtons: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
   },
   quickBtn: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
+    width: '23%',
+    alignItems: 'center',
+  },
+  quickIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
   },
   quickBtnText: {
-    fontSize: 13,
-    color: '#2E7D32',
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#444',
+    fontWeight: '600',
   },
   buttonsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
     borderRadius: 12,
-    paddingVertical: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingVertical: 14,
   },
   generateBtn: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: ACCENT,
+    marginRight: 10,
   },
   clearBtn: {
-    backgroundColor: '#FF6B6B',
+    backgroundColor: '#D97878',
+    flex: 0.55,
   },
   actionBtnText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.bai,
   },
   qrSection: {
     backgroundColor: Colors.bai,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    alignItems: 'center',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'stretch',
   },
   qrContainer: {
-    padding: 20,
+    alignSelf: 'center',
+    padding: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
-    marginVertical: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    marginVertical: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#ECECEC',
   },
   qrContentSection: {
     width: '100%',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    backgroundColor: '#F7F8F6',
+    borderRadius: 10,
     padding: 12,
-    marginTop: 10,
+    marginTop: 8,
   },
   qrContentLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 5,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 4,
   },
   qrContentText: {
     fontSize: 14,
@@ -348,25 +373,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   tipSection: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: 15,
-    borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
-  },
-  tipTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1565C0',
-    marginBottom: 10,
+    backgroundColor: Colors.bai,
+    borderRadius: 14,
+    padding: 16,
   },
   tipText: {
     fontSize: 13,
-    color: '#1976D2',
-    marginBottom: 5,
+    color: '#666',
+    marginBottom: 6,
     lineHeight: 20,
+    paddingLeft: 36,
   },
 });
 
 export default QRCodeGenerator;
-

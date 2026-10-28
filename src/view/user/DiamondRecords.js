@@ -7,10 +7,12 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import { connect } from 'react-redux';
+import Icons from 'react-native-vector-icons/AntDesign';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Header } from '../../component';
 import Http from '../../utils/HttpPost';
 
 const DIAMOND_PRODUCTS = new Set([
@@ -88,16 +90,19 @@ class DiamondRecords extends Component {
   render() {
     const { loading, refreshing, list } = this.state;
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFF6EE" />
-        <Header
-          title="充值明细"
-          leftIcon="left"
-          leftIconColor="#333"
-          onLeftPress={() => this.props.navigation.goBack()}
-          backgroundColor="#FFF6EE"
-          isPurecolor
-        />
+        <View style={styles.nav}>
+          <TouchableOpacity
+            style={styles.navSide}
+            onPress={() => this.props.navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icons name="left" size={22} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>钻石记录</Text>
+          <View style={styles.navSide} />
+        </View>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} color="#F0A04B" />
         ) : (
@@ -118,13 +123,36 @@ class DiamondRecords extends Component {
             }
           />
         )}
-      </View>
+      </SafeAreaView>
     );
   }
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6EE' },
+  nav: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  navSide: {
+    width: 64,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 6,
+  },
+  navTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+  },
   list: { padding: 16, paddingBottom: 40, flexGrow: 1 },
   card: {
     backgroundColor: '#fff',

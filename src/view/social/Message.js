@@ -15,6 +15,7 @@ import Icons from 'react-native-vector-icons/AntDesign';
 import { loadConvList } from '../../utils/chatBootstrap';
 import { syncChatAndDispatch } from '../../utils/chatWs';
 import { SC, socialPage } from '../../theme/social';
+import { getAvatarSource } from '../../utils/avatar';
 
 import CachedImage from '../../component/CachedImage';
 const renderSeparator = () => <View style={separatorStyle.line} />;
@@ -110,11 +111,10 @@ class Message extends React.Component {
       <Pressable style={styles.row} onPress={() => this.openChat(item)}>
         <View style={styles.avatarWrap}>
           <View style={styles.avatar}>
-            {item.faceUrl ? (
-              <CachedImage source={{ uri: item.faceUrl }} style={styles.avatarImg} />
-            ) : (
-              <Icons name="user" size={24} color={SC.rose} />
-            )}
+            <CachedImage
+              source={getAvatarSource(item.faceUrl, item.gender ?? item.sex)}
+              style={styles.avatarImg}
+            />
           </View>
           {!!item.unreadCount && <View style={styles.dot} />}
         </View>
@@ -133,26 +133,28 @@ class Message extends React.Component {
     );
   };
 
-  /** 置顶系统会话：和普通会话同一行样式，不再做成一块卡片 */
+  /** 置顶入口：喜欢我 / AI女友 同一行 */
   renderPinned = () => (
     <View>
-      {PINNED.map((p) => (
-        <Pressable
-          key={p.route}
-          style={styles.row}
-          onPress={() => this.requireLogin(() => this.props.navigation.navigate(p.route))}
-        >
-          <View style={[styles.avatar, { backgroundColor: p.bg }]}>
-            <Icons name={p.icon} size={24} color={p.color} />
-          </View>
-          <View style={styles.mid}>
-            <Text style={styles.name}>{p.title}</Text>
-            <Text style={styles.preview} numberOfLines={1}>
-              {p.desc}
-            </Text>
-          </View>
-        </Pressable>
-      ))}
+      <View style={styles.pinnedRow}>
+        {PINNED.map((p) => (
+          <Pressable
+            key={p.route}
+            style={styles.pinnedCard}
+            onPress={() => this.requireLogin(() => this.props.navigation.navigate(p.route))}
+          >
+            <View style={[styles.pinnedIcon, { backgroundColor: p.bg }]}>
+              <Icons name={p.icon} size={20} color={p.color} />
+            </View>
+            <View style={styles.pinnedMid}>
+              <Text style={styles.pinnedTitle}>{p.title}</Text>
+              <Text style={styles.pinnedDesc} numberOfLines={1}>
+                {p.desc}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.pinnedEnd} />
     </View>
   );
@@ -237,6 +239,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pinnedRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  pinnedCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: SC.soft,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+  },
+  pinnedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinnedMid: { flex: 1, marginLeft: 10 },
+  pinnedTitle: { fontSize: 15, fontWeight: '800', color: SC.ink },
+  pinnedDesc: { marginTop: 3, fontSize: 11, color: SC.mute },
   pinnedEnd: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: SC.line,

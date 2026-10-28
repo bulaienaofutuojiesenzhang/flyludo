@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, ScrollView, SafeAreaView, StatusBar, View, Text, TouchableOpacity, Alert, FlatList, InteractionManager, Platform } from 'react-native';
+import { StyleSheet, ScrollView, SafeAreaView, StatusBar, View, Text, TouchableOpacity, FlatList, InteractionManager, Platform } from 'react-native';
+import { ToastService } from '../../component';
 import { connect } from 'react-redux';
 import DeviceInfo from 'react-native-device-info';
 import Icon from 'react-native-vector-icons/AntDesign';
@@ -176,7 +177,7 @@ class DeviceInfoPage extends React.Component {
 
     } catch (error) {
       console.error('获取设备信息失败:', error);
-      Alert.alert('错误', '获取设备信息失败，请稍后重试');
+      ToastService.error('获取设备信息失败，请稍后重试');
       this.setState({ loading: false });
     }
   };

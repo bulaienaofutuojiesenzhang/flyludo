@@ -7,7 +7,6 @@ import {
   Pressable,
   TextInput,
   StatusBar,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { connect } from 'react-redux';
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { SC } from '../../theme/social';
+import { ToastService } from '../../component';
 
 const STATE_TXT = { 0: '待填地址', 1: '待发货', 2: '已发货', 5: '已完成' };
 
@@ -43,7 +43,7 @@ class OrderDetail extends React.Component {
       phone: this.state.phone,
     }).then((res) => {
       if (res?.code === 200) {
-        Alert.alert('已提交');
+        ToastService.success('已提交');
         this.setState({ editingId: null });
         this.load();
       }
@@ -53,7 +53,7 @@ class OrderDetail extends React.Component {
   confirmRecv = (item) => {
     Http('post', '/social/manghe/myBaobeiShouhuo', { id: item._id }).then((res) => {
       if (res?.code === 200) {
-        Alert.alert('已确认收货');
+        ToastService.success('已确认收货');
         this.load();
       }
     });

@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import Icons from 'react-native-vector-icons/AntDesign';
 import FastImage from 'react-native-fast-image';
 import { Colors, Metrics } from '../../theme';
+import { getAvatarSource } from '../../utils/avatar';
 
 class DareMode extends React.Component {
   constructor(props) {
@@ -140,13 +141,12 @@ class DareMode extends React.Component {
                 {/* 作者信息 */}
                 {gameData.creator && (
                   <View style={styles.creatorSection}>
-                    <FastImage 
+                    <FastImage
                       style={styles.creatorAvatar}
-                      source={
-                        gameData.creator.avatar 
-                          ? { uri: gameData.creator.avatar }
-                          : require('../../asserts/images/user/plc_user.png')
-                      }
+                      source={getAvatarSource(
+                        gameData.creator.avatar,
+                        gameData.creator.gender
+                      )}
                     />
                     <View style={styles.creatorInfo}>
                       <Text style={styles.creatorName}>{gameData.creator.nickname || '匿名用户'}</Text>

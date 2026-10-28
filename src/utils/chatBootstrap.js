@@ -1,12 +1,27 @@
 /**
- * 本地会话列表维护：监听 NEW_MESSAGE，更新 CONV_LIST_* 与未读角标
+ * 本地会话列表维护：监听 NEW_MESSAGE，更新 CONV_LIST_* 与未读角标；触发系统消息通知
  */
 import { DeviceEventEmitter } from 'react-native';
 import AsyncStorage from './AsyncStorage';
+import { ensureChatNotifyChannel, notifyNewMessage } from './msgNotify';
 
 let started = false;
 let myUserId = '';
 let onUnreadChange = null;
+/** 当前正在查看的聊天对方 id，用于前台同会话不弹通知 */
+let activePartnerId = '';
+let notifyPrefs = { playSound: true, vibrate: true };
+
+export function setActiveChatPartner(partnerId) {
+  activePartnerId = String(partnerId || '').trim();
+}
+
+export function setChatNotifyPrefs(prefs = {}) {
+  notifyPrefs = {
+    playSound: prefs.playSound !== false,
+    vibrate: prefs.vibrate !== false,
+  };
+}
 
 function previewOf(msg) {
   const type = String(msg?.type || 'text').toLowerCase();
@@ -91,19 +106,54 @@ async function upsertConv(msg) {
   DeviceEventEmitter.emit('REFRESH_CONV_LIST');
 }
 
+function previewNotifyBody(msg) {
+  const type = String(msg?.type || 'text').toLowerCase();
+  if (type === 'text') return String(msg.content || '你有一条新消息').slice(0, 80);
+  if (type === 'image') return '[图片]';
+  if (type === 'video') return '[视频]';
+  if (type === 'voice' || type === 'audio') return '[语音]';
+  if (type === 'gift') return '[礼物]';
+  return `[${type}]`;
+}
+
+function maybeNotify(msg) {
+  const meId = String(myUserId || '').trim();
+  if (!meId) return;
+  const from = String(msg.fromUserId || '');
+  const to = String(msg.toUserId || '');
+  if (from === meId || to !== meId) return;
+  if (msg.silent) return;
+  if (activePartnerId && from === activePartnerId) return;
+  if (!notifyPrefs.playSound && !notifyPrefs.vibrate) return;
+
+  notifyNewMessage({
+    title: msg.nickName || '新消息',
+    message: previewNotifyBody(msg),
+    playSound: notifyPrefs.playSound,
+    vibrate: notifyPrefs.vibrate,
+  });
+}
+
 export function startChatBootstrap(userId, unreadCb) {
   myUserId = String(userId || '').trim();
   onUnreadChange = unreadCb || null;
+  ensureChatNotifyChannel();
   if (started) return;
   started = true;
   DeviceEventEmitter.addListener('NEW_MESSAGE', (msg) => {
     upsertConv(msg).catch((e) => console.warn('[chatBootstrap]', e));
+    try {
+      maybeNotify(msg);
+    } catch (e) {
+      console.warn('[chatBootstrap] notify', e);
+    }
   });
 }
 
 export function stopChatBootstrap() {
   myUserId = '';
   onUnreadChange = null;
+  activePartnerId = '';
 }
 
 export async function clearConvUnread(partnerId) {

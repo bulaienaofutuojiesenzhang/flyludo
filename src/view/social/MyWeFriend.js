@@ -7,7 +7,6 @@ import {
   Pressable,
   StatusBar,
   Share,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { connect } from 'react-redux';
@@ -15,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { SC } from '../../theme/social';
+import { AppDialog } from '../../component';
 
 class MyWeFriend extends React.Component {
   state = { list: [], refreshing: false };
@@ -35,7 +35,9 @@ class MyWeFriend extends React.Component {
 
   copy = (wx) => {
     const text = String(wx || '');
-    Share.share({ message: text }).catch(() => Alert.alert('微信号', text));
+    Share.share({ message: text }).catch(() =>
+      AppDialog.show({ title: '微信号', message: text })
+    );
   };
 
   renderItem = ({ item }) => (

@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { StyleSheet, SafeAreaView, StatusBar, Text, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { View } from 'native-base';
 import Icons from 'react-native-vector-icons/AntDesign';
 import { Colors, Metrics } from '../../theme';
+import { AppDialog, ToastService } from '../../component';
 
 class TruthOrDareList extends React.Component {
   constructor(props) {
@@ -42,7 +43,7 @@ class TruthOrDareList extends React.Component {
     const { activeTab, editingIndex, editingText, truths, dares } = this.state;
     
     if (!editingText.trim()) {
-      Alert.alert('提示', '内容不能为空');
+      ToastService.warn('内容不能为空');
       return;
     }
 
@@ -64,29 +65,22 @@ class TruthOrDareList extends React.Component {
   }
 
   // 删除项目
-  deleteItem = (index) => {
+  deleteItem = async (index) => {
     const { activeTab, truths, dares } = this.state;
-    
-    Alert.alert(
-      '确认删除',
-      '确定要删除这条题目吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { 
-          text: '删除', 
-          style: 'destructive',
-          onPress: () => {
-            if (activeTab === 'truth') {
-              truths.splice(index, 1);
-              this.setState({ truths });
-            } else {
-              dares.splice(index, 1);
-              this.setState({ dares });
-            }
-          }
-        },
-      ]
-    );
+    const ok = await AppDialog.confirm({
+      title: '确认删除',
+      message: '确定要删除这条题目吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+    });
+    if (!ok) return;
+    if (activeTab === 'truth') {
+      truths.splice(index, 1);
+      this.setState({ truths });
+    } else {
+      dares.splice(index, 1);
+      this.setState({ dares });
+    }
   }
 
   // 添加新项目
@@ -94,7 +88,7 @@ class TruthOrDareList extends React.Component {
     const { activeTab, newItemText, truths, dares } = this.state;
     
     if (!newItemText.trim()) {
-      Alert.alert('提示', '内容不能为空');
+      ToastService.warn('内容不能为空');
       return;
     }
 

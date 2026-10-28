@@ -1,10 +1,10 @@
 
 import React, { Component } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, Alert, } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { View, Text } from 'native-base';
 import { connect } from 'react-redux';
 
-import { Header } from '../../component';
+import { Header, AppDialog } from '../../component';
 import { Metrics, Colors } from '../../theme';
 import AsyncStorage from '../../utils/AsyncStorage';
 
@@ -35,29 +35,14 @@ class Zhuxiao extends Component {
         })
     }
 
-    zhuixaoFunc() {
-        let _this = this;
-        Alert.alert(
-            "注销提示",
-            "您确定对账户进行注销？",
-            [
-                {
-                    text: "我很确定",
-                    onPress: () => {
-                        _this.loginOutFunc()
-                    },
-                    style: "cancel",
-                },
-                { text: "取消", onPress: () => console.log("OK") }
-            ],
-            {
-                cancelable: true,
-                onDismiss: () => {
-                    // 点击其他区域
-                },
-            }
-        );
-
+    async zhuixaoFunc() {
+        const ok = await AppDialog.confirm({
+            title: '注销提示',
+            message: '您确定对账户进行注销？',
+            cancelText: '取消',
+            confirmText: '我很确定',
+        });
+        if (ok) this.loginOutFunc();
     }
 
     render() {

@@ -9,14 +9,15 @@ import {
   ScrollView,
   StatusBar,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
+import { AppDialog, ToastService } from '../../component';
 
 import CachedImage from '../../component/CachedImage';
+import { getAvatarSource } from '../../utils/avatar';
 const { width: W } = Dimensions.get('window');
 const PRICE = '#FF4D4F';
 
@@ -82,73 +83,73 @@ class TreasureDetail extends React.Component {
     });
   };
 
-  buy = () => {
+  buy = async () => {
     const it = this.item();
     if (this.state.busy) {
       return;
     }
     if (Number(this.props.user?.yuanbao || 0) < Number(it.price)) {
-      Alert.alert('钻石不足', '请先充值钻石', [
-        { text: '去充值', onPress: () => this.props.navigation.navigate('Diamond') },
-        { text: '取消', style: 'cancel' },
-      ]);
+      const go = await AppDialog.diamondInsufficient();
+      if (go) this.props.navigation.navigate('Diamond');
       return;
     }
-    Alert.alert('确认购买', `花费 ${it.price} 钻石收下「${it.title}」？`, [
-      { text: '再想想', style: 'cancel' },
-      {
-        text: '确认',
-        onPress: () => {
-          this.setState({ busy: true });
-          Http('post', '/social/manghe/getBaobei', { id: it._id })
-            .then((res) => {
-              if (res?.code === 200) {
-                if (res.data?.yuanbao != null) {
-                  this.props.setUserInfo({ yuanbao: res.data.yuanbao });
-                }
-                Alert.alert('到手了', '请到「我的盲盒订单」填写收货地址', [
-                  {
-                    text: '去填写',
-                    onPress: () => this.props.navigation.replace('OrderDetail'),
-                  },
-                  { text: '好的', onPress: () => this.props.navigation.goBack() },
-                ]);
-              } else if (res?.code === 600) {
-                Alert.alert('钻石不足', '请先充值钻石');
-              } else if (res?.code === 403) {
-                Alert.alert('VIP 专享', res.message || '请先开通 VIP', [
-                  { text: '去开通', onPress: () => this.props.navigation.navigate('Recharge') },
-                  { text: '取消', style: 'cancel' },
-                ]);
-              } else {
-                Alert.alert('没抢到', res?.message || '手慢了');
-              }
-            })
-            .catch(() => {})
-            .finally(() => this.setState({ busy: false }));
-        },
-      },
-    ]);
+    const ok = await AppDialog.confirm({
+      title: '确认购买',
+      message: `花费 ${it.price} 钻石收下「${it.title}」？`,
+      cancelText: '再想想',
+      confirmText: '确认',
+    });
+    if (!ok) return;
+    this.setState({ busy: true });
+    Http('post', '/social/manghe/getBaobei', { id: it._id })
+      .then(async (res) => {
+        if (res?.code === 200) {
+          if (res.data?.yuanbao != null) {
+            this.props.setUserInfo({ yuanbao: res.data.yuanbao });
+          }
+          const goFill = await AppDialog.confirm({
+            title: '到手了',
+            message: '请到「我的盲盒订单」填写收货地址',
+            cancelText: '好的',
+            confirmText: '去填写',
+          });
+          if (goFill) this.props.navigation.replace('OrderDetail');
+          else this.props.navigation.goBack();
+        } else if (res?.code === 600) {
+          const go = await AppDialog.diamondInsufficient();
+          if (go) this.props.navigation.navigate('Diamond');
+        } else if (res?.code === 403) {
+          const go = await AppDialog.confirm({
+            title: 'VIP 专享',
+            message: res.message || '请先开通 VIP',
+            cancelText: '取消',
+            confirmText: '去开通',
+          });
+          if (go) this.props.navigation.navigate('Recharge');
+        } else {
+          ToastService.warn(res?.message || '手慢了');
+        }
+      })
+      .catch(() => {})
+      .finally(() => this.setState({ busy: false }));
   };
 
-  remove = () => {
+  remove = async () => {
     const it = this.item();
-    Alert.alert('下架宝贝', '下架后别人将看不到，确定吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '下架',
-        style: 'destructive',
-        onPress: () => {
-          Http('post', '/social/manghe/deleteBaobei', { id: it._id }).then((res) => {
-            if (res?.code === 200) {
-              this.props.navigation.goBack();
-            } else {
-              Alert.alert('提示', res?.message || '下架失败');
-            }
-          });
-        },
-      },
-    ]);
+    const ok = await AppDialog.confirm({
+      title: '下架宝贝',
+      message: '下架后别人将看不到，确定吗？',
+      cancelText: '取消',
+      confirmText: '下架',
+    });
+    if (!ok) return;
+    Http('post', '/social/manghe/deleteBaobei', { id: it._id }).then((res) => {
+      if (res?.code === 200) {
+        this.props.navigation.goBack();
+      } else {
+        ToastService.warn(res?.message || '下架失败');
+      }
+    });
   };
 
   render() {
@@ -208,11 +209,10 @@ class TreasureDetail extends React.Component {
           <View style={styles.bar} />
 
           <Pressable style={styles.seller} onPress={this.openSeller}>
-            {seller.myFace ? (
-              <CachedImage source={{ uri: seller.myFace }} style={styles.sAvatar} />
-            ) : (
-              <View style={[styles.sAvatar, { backgroundColor: '#E6E3F7' }]} />
-            )}
+            <CachedImage
+              source={getAvatarSource(seller.myFace, seller.gender)}
+              style={styles.sAvatar}
+            />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.sName}>{seller.nickName || '神秘人'}</Text>
               <Text style={styles.sCity}>{seller.city || '隐匿地址'}</Text>

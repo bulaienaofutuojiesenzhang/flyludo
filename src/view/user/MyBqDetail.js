@@ -13,6 +13,7 @@ import Config from '../../config/index';
 import { Colors, Metrics } from '../../theme';
 import Http from '../../utils/HttpPost';
 import ParamsValidate from '../../utils/ValueValidate';
+import { getAvatarSource } from '../../utils/avatar';
 
 
 class MyBqDetail extends React.Component {
@@ -276,11 +277,9 @@ class MyBqDetail extends React.Component {
             {/* 底部信息 */}
             <View style={Styles.bottomInfo}>
               <View style={Styles.userInfo}>
-                <FastImage 
+                <FastImage
                   style={Styles.avatar}
-                  source={ this.props.user.avatar ? { uri: Config.File_PATH + this.props.user.avatar } : 
-                    require('../../asserts/images/user/plc_user.png')
-                  }
+                  source={getAvatarSource(this.props.user)}
                 />
                 <Text style={Styles.userName}>{item.userInfo.name}</Text>
               </View>

@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   StatusBar,
-  Alert,
   Image,
   ScrollView,
 } from 'react-native';
@@ -16,6 +15,7 @@ import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { pickAndUploadImage } from '../../utils/socialUpload';
 import { SC } from '../../theme/social';
+import { ToastService } from '../../component';
 
 class PublishSay extends React.Component {
   state = { text: '', posting: false, imgList: [] };
@@ -26,7 +26,7 @@ class PublishSay extends React.Component {
 
   addImage = async () => {
     if (this.state.imgList.length >= 9) {
-      Alert.alert('最多 9 张图');
+      ToastService.warn('最多 9 张图');
       return;
     }
     const url = await pickAndUploadImage({ selectionLimit: 1 });
@@ -55,7 +55,7 @@ class PublishSay extends React.Component {
         if (res?.code === 200) {
           this.props.navigation.goBack();
         } else {
-          Alert.alert('发布失败', res?.message || '请稍后重试');
+          ToastService.warn(res?.message || '发布失败，请稍后重试');
         }
       })
       .finally(() => this.setState({ posting: false }));

@@ -6,7 +6,6 @@ import {
   TextInput,
   Pressable,
   StatusBar,
-  Alert,
   Image,
   ScrollView,
 } from 'react-native';
@@ -16,6 +15,7 @@ import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { pickAndUploadImage } from '../../utils/socialUpload';
 import { SC } from '../../theme/social';
+import { ToastService } from '../../component';
 
 class UpManghe extends React.Component {
   state = { title: '', describe: '', price: '', busy: false, photoList: [], vipOnly: false };
@@ -26,7 +26,7 @@ class UpManghe extends React.Component {
 
   addImage = async () => {
     if (this.state.photoList.length >= 6) {
-      Alert.alert('最多 6 张图');
+      ToastService.warn('最多 6 张图');
       return;
     }
     const url = await pickAndUploadImage({ selectionLimit: 1 });
@@ -43,7 +43,7 @@ class UpManghe extends React.Component {
     const title = String(this.state.title || '').trim();
     const price = Number(this.state.price) || 0;
     if (!title || price <= 0) {
-      Alert.alert('请填写标题和价格');
+      ToastService.warn('请填写标题和价格');
       return;
     }
     this.setState({ busy: true });
@@ -57,10 +57,10 @@ class UpManghe extends React.Component {
     })
       .then((res) => {
         if (res?.code === 200) {
-          Alert.alert('上架成功');
+          ToastService.success('上架成功');
           this.props.navigation.goBack();
         } else {
-          Alert.alert('失败', res?.message || '');
+          ToastService.warn(res?.message || '上架失败');
         }
       })
       .finally(() => this.setState({ busy: false }));

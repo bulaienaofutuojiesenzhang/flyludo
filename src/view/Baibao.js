@@ -6,7 +6,6 @@ import {
   StatusBar,
   Text,
   View,
-  Platform,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -107,12 +106,6 @@ class Baibao extends React.Component {
     });
   };
 
-  onAiGirlfriendPress = () => {
-    this.ensureLogin(() => {
-      this.props.navigation.push('AiGirlfriend');
-    });
-  };
-
   render() {
     return (
       <SafeAreaView edges={['top']} style={Styles.container}>
@@ -165,28 +158,6 @@ class Baibao extends React.Component {
             ))}
           </View>
         </ScrollView>
-
-        {/* 底部固定：AI女友 */}
-        <View style={Styles.bottomDock}>
-          <TouchableOpacity
-            style={Styles.gfBar}
-            onPress={this.onAiGirlfriendPress}
-            activeOpacity={0.88}
-          >
-            <View style={Styles.gfGlow} />
-            <View style={Styles.gfIcon}>
-              <Ionicons name="heart" size={22} color="#FFF" />
-            </View>
-            <View style={Styles.gfText}>
-              <Text style={Styles.gfTitle}>AI女友</Text>
-              <Text style={Styles.gfSub}>智能陪伴 · 随时开聊</Text>
-            </View>
-            <View style={Styles.gfCta}>
-              <Text style={Styles.gfCtaTxt}>进入</Text>
-              <Icons name="right" size={11} color="#C44A6A" />
-            </View>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
@@ -300,72 +271,5 @@ const Styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 12,
     color: '#A88F97',
-  },
-  bottomDock: {
-    paddingHorizontal: PAGE_PAD,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'android' ? 10 : 4,
-    backgroundColor: '#FFF8F5',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(232, 122, 150, 0.12)',
-  },
-  gfBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E86B8A',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    overflow: 'hidden',
-    shadowColor: '#E86B8A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  gfGlow: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    right: -20,
-    top: -30,
-  },
-  gfIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gfText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  gfTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFF',
-  },
-  gfSub: {
-    marginTop: 2,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.88)',
-  },
-  gfCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  gfCtaTxt: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#C44A6A',
-    marginRight: 2,
   },
 });

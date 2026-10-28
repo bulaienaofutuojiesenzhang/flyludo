@@ -101,14 +101,11 @@ class Home extends React.Component {
     });
   };
 
-  startFitness = () => {
-    this.props.navigation.push('CoupleFlyingChess', {
-      gameData: {
-        title: '情侣健身飞行棋',
-        description: '和TA一起挑战健身目标',
-        playerCount: 2,
-        steps: FITNESS_STEPS,
-      },
+  startTruthOrDare = () => {
+    this.props.navigation.push('TruthOrDareGame', {
+      mode: 'both',
+      truths: this.props.truths || [],
+      dares: this.props.dares || [],
     });
   };
 
@@ -162,18 +159,18 @@ class Home extends React.Component {
             <Text style={styles.blockDesc}>同一套棋盘，不同的夜晚气氛</Text>
 
             <View style={styles.modeRow}>
-              <TouchableOpacity activeOpacity={0.9} onPress={this.startFitness} style={styles.modeTile}>
-                <Image source={require('../asserts/images/home/v2_fitness.png')} style={styles.modeImg} />
+              <TouchableOpacity activeOpacity={0.9} onPress={this.startTruthOrDare} style={styles.modeTile}>
+                <Image source={require('../asserts/images/home/v2_truth.png')} style={styles.modeImg} />
                 <View style={styles.modeCaption}>
-                  <Text style={styles.modeName}>健身飞行棋</Text>
-                  <Text style={styles.modeHint}>边玩边动</Text>
+                  <Text style={styles.modeName}>真心话大冒险</Text>
+                  <Text style={styles.modeHint}>抽题当面玩</Text>
                 </View>
               </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.9} onPress={this.goCustom} style={styles.modeTile}>
                 <Image source={require('../asserts/images/home/v2_custom.png')} style={styles.modeImg} />
                 <View style={styles.modeCaption}>
-                  <Text style={styles.modeName}>自定义棋盘</Text>
-                  <Text style={styles.modeHint}>写专属格子</Text>
+                  <Text style={styles.modeName}>创建玩法</Text>
+                  <Text style={styles.modeHint}>创建专属飞行棋、真心话</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -266,6 +263,8 @@ const mapStateToProps = (state) => ({
   isLogged: state.user.isLogged,
   token: state.user.token,
   user: state.user,
+  truths: state.game?.truths,
+  dares: state.game?.dares,
 });
 
 export default connect(mapStateToProps)(Home);

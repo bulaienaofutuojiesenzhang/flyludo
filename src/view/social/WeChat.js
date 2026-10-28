@@ -7,13 +7,13 @@ import {
   Pressable,
   Switch,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { SC } from '../../theme/social';
+import { ToastService } from '../../component';
 
 class WeChat extends React.Component {
   state = {
@@ -41,7 +41,7 @@ class WeChat extends React.Component {
             wechatOpen: this.state.wechatOpen,
             city: this.state.city,
           });
-          Alert.alert('已保存', '扩列微信设置已更新');
+          ToastService.success('扩列微信设置已更新');
           this.props.navigation.goBack();
         }
       })

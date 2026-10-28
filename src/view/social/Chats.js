@@ -10,23 +10,20 @@ import {
   Platform,
   StatusBar,
   Modal,
-  Alert,
   DeviceEventEmitter,
   Image,
-  ImageBackground,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { emitLocalSentMessage } from '../../utils/chatWs';
-import { clearConvUnread } from '../../utils/chatBootstrap';
-import { CHAT_GIFTS } from '../../utils/chatGifts';
+import { clearConvUnread, setActiveChatPartner } from '../../utils/chatBootstrap';
+import { CHAT_GIFTS, getGiftIcon, parseGiftContent } from '../../utils/chatGifts';
 import { pickAndUploadImage } from '../../utils/socialUpload';
 import AsyncStorage from '../../utils/AsyncStorage';
 import { SC } from '../../theme/social';
-
-const CHAT_BG = require('../../asserts/images/chat/chatbglv.png');
+import { AppDialog } from '../../component';
 
 class Chats extends React.Component {
   state = { text: '', sending: false, messages: [], giftOpen: false };
@@ -34,6 +31,7 @@ class Chats extends React.Component {
   componentDidMount() {
     StatusBar.setBarStyle('dark-content');
     const { partnerId } = this.props.route.params || {};
+    setActiveChatPartner(partnerId);
     clearConvUnread(partnerId);
     this.loadLocal();
     this.pull();
@@ -41,6 +39,7 @@ class Chats extends React.Component {
   }
 
   componentWillUnmount() {
+    setActiveChatPartner('');
     this.sub && this.sub.remove();
   }
 
@@ -134,7 +133,10 @@ class Chats extends React.Component {
         });
         emitLocalSentMessage(local);
       } else if (res?.code === 40301) {
-        Alert.alert('今日次数已用完', res.message || '开通 VIP 可无限发送');
+        AppDialog.show({
+          title: '今日次数已用完',
+          message: res.message || '开通 VIP 可无限发送',
+        });
       }
     } finally {
       this.setState({ sending: false });
@@ -155,10 +157,13 @@ class Chats extends React.Component {
     if (q?.code === 200 && q.data && !q.data.isVip) {
       const remain = Number(q.data.remain?.image);
       if (Number.isFinite(remain) && remain <= 0) {
-        Alert.alert('今日图片次数已用完', '开通 VIP 可无限发送', [
-          { text: '去开通', onPress: () => this.props.navigation.navigate('Recharge') },
-          { text: '取消' },
-        ]);
+        const go = await AppDialog.confirm({
+          title: '今日图片次数已用完',
+          message: '开通 VIP 可无限发送',
+          cancelText: '取消',
+          confirmText: '去开通',
+        });
+        if (go) this.props.navigation.navigate('Recharge');
         return;
       }
     }
@@ -178,10 +183,16 @@ class Chats extends React.Component {
         if (res.data?.yuanbao != null) {
           this.props.setUserInfo({ yuanbao: res.data.yuanbao });
         }
+        const giftPayload = res.data?.gift || {
+          giftId: gift.id,
+          id: gift.id,
+          name: gift.name,
+          price: gift.price,
+        };
         const local = {
           fromUserId: String(this.props.user.userId),
           toUserId: String(partnerId),
-          content: JSON.stringify(res.data?.gift || gift),
+          content: JSON.stringify(giftPayload),
           type: 'gift',
           time: res.data?.time || Date.now(),
           nickName: nickName || '',
@@ -195,10 +206,9 @@ class Chats extends React.Component {
         });
         emitLocalSentMessage(local);
       } else if (res?.code === 600) {
-        Alert.alert('钻石不足', '请先充值', [
-          { text: '去充值', onPress: () => this.props.navigation.navigate('Diamond') },
-          { text: '取消' },
-        ]);
+        AppDialog.diamondInsufficient().then((go) => {
+          if (go) this.props.navigation.navigate('Diamond');
+        });
       }
     });
   };
@@ -215,12 +225,14 @@ class Chats extends React.Component {
       return <Image source={{ uri: item.content }} style={styles.msgImg} resizeMode="cover" />;
     }
     if (item.type === 'gift') {
-      try {
-        const g = JSON.parse(item.content || '{}');
-        return `[礼物] ${g.name || ''}`;
-      } catch (_) {
-        return '[礼物]';
-      }
+      const g = parseGiftContent(item.content) || {};
+      const icon = getGiftIcon(g);
+      return (
+        <View style={styles.giftBubble}>
+          {icon ? <Image source={icon} style={styles.giftBubbleIcon} resizeMode="contain" /> : null}
+          <Text style={styles.bubbleTxt}>{g.name || '礼物'}</Text>
+        </View>
+      );
     }
     if (item.locked) return item.preview || '[媒体已锁定·开通VIP可看]';
     return item.content;
@@ -270,7 +282,7 @@ class Chats extends React.Component {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={8}
         >
-          <ImageBackground source={CHAT_BG} style={styles.msgBg} resizeMode="cover">
+          <View style={styles.msgBg}>
             <FlatList
               data={this.state.messages}
               keyExtractor={(item, i) => String(item._id || i)}
@@ -278,7 +290,7 @@ class Chats extends React.Component {
               contentContainerStyle={styles.list}
               ListEmptyComponent={<Text style={styles.hint}>发送第一条消息开始聊天</Text>}
             />
-          </ImageBackground>
+          </View>
 
           <View style={styles.inputBar}>
             <Pressable style={styles.iconBtn} onPress={this.sendImage} disabled={this.state.sending}>
@@ -308,7 +320,10 @@ class Chats extends React.Component {
               <View style={styles.giftGrid}>
                 {CHAT_GIFTS.map((g) => (
                   <Pressable key={g.id} style={styles.giftItem} onPress={() => this.sendGift(g)}>
-                    <Text style={styles.giftName}>{g.name}</Text>
+                    <Image source={g.icon} style={styles.giftIcon} resizeMode="contain" />
+                    <Text style={styles.giftName} numberOfLines={1}>
+                      {g.name}
+                    </Text>
                     <Text style={styles.giftPrice}>{g.price} 钻</Text>
                   </Pressable>
                 ))}
@@ -408,12 +423,16 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, fontWeight: '700', color: SC.ink, marginBottom: 12 },
   giftGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   giftItem: {
-    width: '33.33%',
-    padding: 10,
+    width: '25%',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
   },
-  giftName: { fontWeight: '700', color: SC.ink },
-  giftPrice: { marginTop: 4, color: SC.rose, fontSize: 12 },
+  giftIcon: { width: 52, height: 52, marginBottom: 6 },
+  giftName: { fontWeight: '700', color: SC.ink, fontSize: 12 },
+  giftPrice: { marginTop: 2, color: SC.rose, fontSize: 11 },
+  giftBubble: { flexDirection: 'row', alignItems: 'center' },
+  giftBubbleIcon: { width: 36, height: 36, marginRight: 6 },
 });
 
 export default connect(

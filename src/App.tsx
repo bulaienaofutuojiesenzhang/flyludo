@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store, persistor } from './redux/ConfigStore';
 import Roots from './Root';
 import { AppDialogHost } from './component/AppDialog';
+import { GreetBootstrap } from './providers/GreetBootstrap';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <PersistGate loading={null} persistor={persistor}>
             <Roots />
             <AppDialogHost />
+            <GreetBootstrap />
           </PersistGate>
         </Provider>
       </NativeBaseProvider>

@@ -2,6 +2,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Android 13+ 通知权限（消息提醒） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 附近的人：获取经纬度后换算城市 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -49,5 +53,23 @@
             <data android:scheme="alipay2021006199697336" />
         </intent-filter>
       </activity>
+
+      <!-- 本地消息通知（react-native-push-notification） -->
+      <receiver
+          android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationPublisher"
+          android:exported="false" />
+      <receiver
+          android:enabled="true"
+          android:exported="true"
+          android:name="com.dieam.reactnativepushnotification.modules.RNPushNotificationBootEventReceiver">
+          <intent-filter>
+              <action android:name="android.intent.action.BOOT_COMPLETED" />
+              <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+              <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+          </intent-filter>
+      </receiver>
+      <meta-data
+          android:name="com.dieam.reactnativepushnotification.default_notification_channel_id"
+          android:value="flyludo_msg_v1" />
     </application>
 </manifest>

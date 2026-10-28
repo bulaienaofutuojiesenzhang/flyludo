@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { StyleSheet, Platform, NativeModules, BackHandler, Alert, Linking, Image, Modal, TouchableOpacity,  View, Text, DeviceEventEmitter} from 'react-native';
+import { StyleSheet, Platform, NativeModules, BackHandler, Linking, Image, Modal, TouchableOpacity,  View, Text, DeviceEventEmitter, Dimensions} from 'react-native';
 // 配置组件
 import { connect } from 'react-redux';
 import { NavigationContainer, useNavigation, CommonActions } from '@react-navigation/native';
@@ -24,7 +24,8 @@ import PlayScreen from "./view/social/Play"; // 搭子
 import MessageScreen from "./view/social/Message"; // 消息
 import Icons from 'react-native-vector-icons/AntDesign';
 import { connectChatWs, disconnectChatWs } from './utils/chatWs';
-import { startChatBootstrap, stopChatBootstrap } from './utils/chatBootstrap';
+import { startChatBootstrap, stopChatBootstrap, setChatNotifyPrefs } from './utils/chatBootstrap';
+import { ensureChatNotifyChannel } from './utils/msgNotify';
 import { SC } from './theme/social';
 
 // 登录类路由
@@ -36,10 +37,13 @@ import ForgetPasswordScreen from  "./view/user/ForgetPassword"; // 忘记Miami
 import Routes from './Routes';
 
 import PublishModal from './component/PublishModal';
+import { AppDialog } from './component';
+import AsyncStorage from './utils/AsyncStorage';
 
 const navigationRef = React.createRef();
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const AI_FAB_HIDE_KEY = 'ai_gf_fab_hidden';
 
 
 
@@ -215,55 +219,125 @@ function MyTabBar({ state, descriptors, navigation }) {
 }
 
 
-function MainTabCom() {
+/** aigreals.png 原图约 1304×1804，按比例完整展示 */
+const AI_FAB_W = 56;
+const AI_FAB_H = Math.round(AI_FAB_W * (1804 / 1304));
+const AI_FAB_BOTTOM = Math.round(Dimensions.get('window').height * 0.2);
+
+function MainTabInner({ isLogged }) {
+  const navigation = useNavigation();
+  const [fabVisible, setFabVisible] = React.useState(true);
+
+  React.useEffect(() => {
+    AsyncStorage.getItem(AI_FAB_HIDE_KEY).then((v) => {
+      if (v === '1') setFabVisible(false);
+    });
+  }, []);
+
+  const openAiGirlfriend = () => {
+    if (!isLogged) {
+      navigation.navigate('Login');
+      return;
+    }
+    navigation.navigate('AiGirlfriend');
+  };
+
+  const onCloseFab = async () => {
+    const stay = await AppDialog.confirm({
+      title: '真的要关掉我吗？',
+      message: '关闭后我就无法陪伴你了，需要找我到消息页 → AI女友找我哦',
+      type: 'confirm',
+      cancelText: '关闭',
+      confirmText: '留下来',
+    });
+    if (!stay) {
+      setFabVisible(false);
+      AsyncStorage.setItem(AI_FAB_HIDE_KEY, '1');
+    }
+  };
+
   return (
-    <Tab.Navigator
-      initialRouteName="Home"
-      tabBar={props => <MyTabBar {...props} />}
-    >
-      <Tab.Screen
-        name={"Home"}
-        component={MomentsScreen}
-        options={{
-          title: "首页",
-          headerShown: false
-        }}
-      />
-      <Tab.Screen
-        name={"Match"}
-        component={MakeFriendScreen}
-        options={{
-          title: "扩列",
-          headerShown: false
-        }}
-      />
-      <Tab.Screen
-        name={"Play"}
-        component={PlayScreen}
-        options={{
-          title: "搭子",
-          headerShown: false
-        }}
-      />
-      <Tab.Screen
-        name={"Message"}
-        component={MessageScreen}
-        options={{
-          title: "消息",
-          headerShown: false
-        }}
-      />
-      <Tab.Screen
-        name={"Users"}
-        component={UsersScreen}
-        options={{
-          title: "我的",
-          headerShown: false,
-        }}
-      />
-    </Tab.Navigator>
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
+        initialRouteName="Home"
+        tabBar={props => <MyTabBar {...props} />}
+      >
+        <Tab.Screen
+          name={"Home"}
+          component={MomentsScreen}
+          options={{
+            title: "首页",
+            headerShown: false
+          }}
+        />
+        <Tab.Screen
+          name={"Match"}
+          component={MakeFriendScreen}
+          options={{
+            title: "扩列",
+            headerShown: false
+          }}
+        />
+        <Tab.Screen
+          name={"Play"}
+          component={PlayScreen}
+          options={{
+            title: "搭子",
+            headerShown: false
+          }}
+        />
+        <Tab.Screen
+          name={"Message"}
+          component={MessageScreen}
+          options={{
+            title: "消息",
+            headerShown: false
+          }}
+        />
+        <Tab.Screen
+          name={"Users"}
+          component={UsersScreen}
+          options={{
+            title: "我的",
+            headerShown: false,
+          }}
+        />
+      </Tab.Navigator>
+
+      {/* 右侧中下：AI女友悬浮入口 */}
+      {fabVisible ? (
+        <View style={Styles.aiFab} pointerEvents="box-none">
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={openAiGirlfriend}
+            accessibilityLabel="AI女友"
+            style={Styles.aiFabBody}
+          >
+            <Image
+              source={require('./asserts/images/home/aigreals.png')}
+              style={Styles.aiFabImg}
+              resizeMode="cover"
+            />
+            <View style={Styles.aiFabLabel}>
+              <Text style={Styles.aiFabTxt}>AI女友</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={Styles.aiFabClose}
+            activeOpacity={0.8}
+            onPress={onCloseFab}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            accessibilityLabel="关闭AI女友入口"
+          >
+            <Icons name="close" size={10} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </View>
   );
 }
+
+const MainTabCom = connect((s) => ({ isLogged: !!s.user?.isLogged }))(MainTabInner);
 
 
 class Root extends React.Component {
@@ -298,6 +372,8 @@ class Root extends React.Component {
       );
     });
 
+    ensureChatNotifyChannel();
+    this.syncChatNotifyPrefs();
     this.bindChatIfLogged();
   }
 
@@ -307,6 +383,12 @@ class Root extends React.Component {
     const now = this.props.user?.isLogged;
     const prevUid = prevProps.user?.userId;
     const uid = this.props.user?.userId;
+    if (
+      prevProps.global?.lingsheng !== this.props.global?.lingsheng ||
+      prevProps.global?.zhendong !== this.props.global?.zhendong
+    ) {
+      this.syncChatNotifyPrefs();
+    }
     if (now && uid && (!was || String(prevUid) !== String(uid))) {
       this.bindChatIfLogged();
     }
@@ -316,9 +398,17 @@ class Root extends React.Component {
     }
   }
 
+  syncChatNotifyPrefs = () => {
+    setChatNotifyPrefs({
+      playSound: this.props.global?.lingsheng !== false,
+      vibrate: this.props.global?.zhendong !== false,
+    });
+  };
+
   bindChatIfLogged = () => {
     const uid = this.props.user?.userId;
     if (!this.props.user?.isLogged || !uid) return;
+    this.syncChatNotifyPrefs();
     startChatBootstrap(uid, (totalUnreadCount) => {
       this.props.setGlobalInfo({ totalUnreadCount });
     });
@@ -430,11 +520,10 @@ class Root extends React.Component {
       return;
     }
     // 无下载地址时给明确提示，避免强制更新卡死却点不动
-    Alert.alert(
-      '暂无下载地址',
-      '新版本下载链接尚未配置，请稍后再试或联系客服。',
-      [{ text: '知道了' }]
-    );
+    AppDialog.show({
+      title: '暂无下载地址',
+      message: '新版本下载链接尚未配置，请稍后再试或联系客服。',
+    });
   };
 
   // 处理跳过更新（仅非强制更新可用）
@@ -480,11 +569,11 @@ class Root extends React.Component {
                 </Text>
                 <Text style={{ textAlign: 'left', fontSize: 14, color: '#000000', marginTop: 30}}>
                   感谢您使用同城有约非常重视对您的个人信息保护，在您使用服务之前，您可阅读
-                  <Text onPress={() => { this.doLinkFunc('http://tongchengyouyue.com/tongchengyouyue/agreement') }} style={{ color: "#B29F80" }}>
+                  <Text onPress={() => { this.doLinkFunc('http://daoyikeji.com/flyingchess/tongchengyouyue/agreement') }} style={{ color: "#B29F80" }}>
                     《用户协议》
                   </Text>
                   及
-                  <Text onPress={() => { this.doLinkFunc('http://tongchengyouyue.com/tongchengyouyue/privacy') }} style={{ color: "#B29F80" }}>
+                  <Text onPress={() => { this.doLinkFunc('http://daoyikeji.com/flyingchess/tongchengyouyue/privacy') }} style={{ color: "#B29F80" }}>
                     《隐私协议》
                   </Text>
                   了解详细信息。如您同意，请点击"同意"开始接受我们的服务。
@@ -658,6 +747,45 @@ const Styles = StyleSheet.create({
   tabLabel: {
     marginTop: px2dp(1),
     fontSize: 12
+  },
+  aiFab: {
+    position: 'absolute',
+    right: 8,
+    bottom: AI_FAB_BOTTOM,
+    width: AI_FAB_W + 10,
+    alignItems: 'center',
+    zIndex: 99,
+  },
+  aiFabBody: {
+    alignItems: 'center',
+  },
+  aiFabImg: {
+    width: AI_FAB_W,
+    height: AI_FAB_H,
+  },
+  aiFabLabel: {
+    marginTop: -4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(226,60,254,0.92)',
+  },
+  aiFabTxt: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    color: '#FFF5FB',
+  },
+  aiFabClose: {
+    position: 'absolute',
+    top: -14,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(42,20,32,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   Texts: {
     color: '#333333'

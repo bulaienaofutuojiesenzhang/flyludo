@@ -48,11 +48,15 @@ export function pickAndUploadImage(options = {}) {
 }
 
 export async function uploadAsset(asset) {
-  if (!asset?.uri) return null;
+  if (!asset?.uri && !asset?.path) return null;
+  let uri = String(asset.uri || asset.path || '');
+  if (uri.startsWith('/') && !uri.startsWith('file://')) {
+    uri = `file://${uri}`;
+  }
   const res = await HttpFrom.imgUpData(
-    asset.uri,
-    asset.type || 'image/jpeg',
-    asset.fileName || `img_${Date.now()}.jpg`
+    uri,
+    asset.type || asset.mime || 'image/jpeg',
+    asset.fileName || asset.filename || `img_${Date.now()}.jpg`
   );
   if (!res || res.code !== 200) return null;
   if (res.data?.url) return String(res.data.url);

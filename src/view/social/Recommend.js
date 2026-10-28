@@ -10,7 +10,6 @@ import SwipeDeck from '../../component/SwipeDeck';
 const FILTERS = [
   { label: '推荐', type: 0 },
   { label: '同城', type: 2 },
-  { label: '新人', type: 1 },
 ];
 
 /** 首页：只做一件事 —— 遇见人（玩法在「玩法」页，动态在「广场」） */

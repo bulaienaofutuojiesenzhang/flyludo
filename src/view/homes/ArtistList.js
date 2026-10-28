@@ -7,6 +7,7 @@ import Config from '../../config/index';
 import { Colors, Metrics } from '../../theme';
 import { Loading, ToastService, MyAlert } from '../../component';
 import Http from '../../utils/HttpPost';
+import { getAvatarSource } from '../../utils/avatar';
 
 class ArtistList extends Component {
   constructor(props) {
@@ -138,7 +139,7 @@ class ArtistList extends Component {
       <View style={Styles.followerItem}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => { this.props.navigation.push('ArtistDetail', item) }} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <FastImage style={Styles.avatar} source={item.userInfo?.avatar ? { uri: Config.File_PATH + item.userInfo?.avatar } : require('../../asserts/images/user/plc_user.png')} />
+            <FastImage style={Styles.avatar} source={getAvatarSource(item.userInfo)} />
             <Text style={{ marginLeft: 5 }}>{item.userInfo.name}</Text> 
           </TouchableOpacity>
 

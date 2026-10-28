@@ -9,7 +9,7 @@ import {
   ScrollView,
   Switch,
   StatusBar,
-  Alert,
+  Platform,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,9 +18,10 @@ import ImagePicker from 'react-native-image-crop-picker';
 
 import Config from '../../config/index';
 import Http from '../../utils/HttpPost';
-import { Loading, ToastService } from '../../component';
+import { Loading, ToastService, AppDialog } from '../../component';
 import { SC } from '../../theme/social';
 import { pickAndUploadImage, uploadAsset } from '../../utils/socialUpload';
+import { getAvatarSource } from '../../utils/avatar';
 
 let DatePickerComp = null;
 try {
@@ -95,8 +96,17 @@ class MyHome extends Component {
     };
   }
 
-  componentDidMount() {
+  applyStatusBar = () => {
     StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor('transparent');
+    }
+  };
+
+  componentDidMount() {
+    this.applyStatusBar();
+    this.focusUnsub = this.props.navigation.addListener('focus', this.applyStatusBar);
     // 拉最新资料，补齐本地缓存里没有的新字段
     Http('get', '/users/profile').then((res) => {
       if (res?.code === 200 && res.data) {
@@ -119,6 +129,12 @@ class MyHome extends Component {
         });
       }
     });
+  }
+
+  componentWillUnmount() {
+    if (this.focusUnsub) {
+      this.focusUnsub();
+    }
   }
 
   /** 立即保存的字段（头像 / 相册）：上传完就落库，避免丢图 */
@@ -177,19 +193,17 @@ class MyHome extends Component {
     this.saveNow({ photos });
   };
 
-  removePhoto = (i) => {
-    Alert.alert('删除照片', '确定删除这张照片吗？', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () => {
-          const photos = this.state.photos.filter((_, idx) => idx !== i);
-          this.setState({ photos });
-          this.saveNow({ photos });
-        },
-      },
-    ]);
+  removePhoto = async (i) => {
+    const ok = await AppDialog.confirm({
+      title: '删除照片',
+      message: '确定删除这张照片吗？',
+      cancelText: '取消',
+      confirmText: '删除',
+    });
+    if (!ok) return;
+    const photos = this.state.photos.filter((_, idx) => idx !== i);
+    this.setState({ photos });
+    this.saveNow({ photos });
   };
 
   toggleChip = (key, val) => {
@@ -312,11 +326,15 @@ class MyHome extends Component {
 
   render() {
     const s = this.state;
-    const face = toUri(this.props.user?.avatar || this.props.user?.myFace);
+    const faceSource = getAvatarSource(
+      this.props.user?.avatar || this.props.user?.myFace,
+      s.gender ?? this.props.user?.gender
+    );
     const age = calcAge(s.birthday);
 
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
         <Loading showLoading={s.loading} />
 
         {!!s.pickShow && !!DatePickerComp && (
@@ -352,13 +370,7 @@ class MyHome extends Component {
         >
           {/* 头像 */}
           <Pressable style={styles.avatarBox} onPress={this.changeAvatar}>
-            {face ? (
-              <Image source={{ uri: face }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPh]}>
-                <Icons name="user" size={40} color={SC.roseSoft} />
-              </View>
-            )}
+            <Image source={faceSource} style={styles.avatar} />
             <View style={styles.camera}>
               <Icons name="camera" size={13} color="#fff" />
             </View>

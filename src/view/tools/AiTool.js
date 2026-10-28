@@ -16,16 +16,22 @@ import { View } from 'native-base';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { connect } from 'react-redux';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
 import { WebView } from 'react-native-webview';
 import FastImage from 'react-native-fast-image';
 import Video from 'react-native-video';
 
 import { Loading, ToastService, AppDialog } from '../../component';
 import { Colors } from '../../theme';
-import Http from '../../utils/HttpPost';
 import AsyncStorage from '../../utils/AsyncStorage';
 import { uploadAiFile, getResultKind } from '../../utils/aiUpload';
+import {
+  fetchScenes,
+  fetchClothesStyles,
+  submitAiDirect,
+  pollAiTask,
+  billFinish,
+} from '../../utils/aiDirect';
 import {
   requestMediaPermission,
   normalizeLocalImageUri,
@@ -65,16 +71,9 @@ const AI_CONFIG = {
   },
 };
 
+/** 与上游可用 method 对齐：目前仅 bikini 可提交成功 */
 const DEFAULT_CLOTHES_STYLES = [
   { id: 'bikini', name: '比基尼' },
-  { id: 'underwear', name: '内衣' },
-  { id: 'lingerie', name: '情趣装' },
-  { id: 'school', name: 'JK制服' },
-  { id: 'maid', name: '女仆装' },
-  { id: 'nurse', name: '护士装' },
-  { id: 'qipao', name: '旗袍' },
-  { id: 'sport', name: '运动装' },
-  { id: 'dress', name: '连衣裙' },
 ];
 
 class AiTool extends Component {
@@ -181,8 +180,8 @@ class AiTool extends Component {
       this.setState({ scenesLoading: true });
     }
     try {
-      const res = await Http('post', '/ai-proxy/ai/scenes', {});
-      if (res.code === 200 && res.data?.list) {
+      const res = await fetchScenes();
+      if (Number(res?.code) === 200 && res.data?.list) {
         const list = this.slimScenes(res.data.list);
         this.setState({ scenes: list });
         await this.saveScenesCache(list);
@@ -192,31 +191,25 @@ class AiTool extends Component {
     this.setState({ scenesLoading: false });
   };
 
-  // 服务端失败时本地兜底，避免「获取换衣风格失败」后无法使用
+  // 服务端失败时本地兜底（仅保留上游实测可用的风格）
   FALLBACK_CLOTHES_STYLES = [
     { id: 'bikini', name: '比基尼' },
-    { id: 'underwear', name: '内衣' },
-    { id: 'lingerie', name: '情趣装' },
-    { id: 'school', name: 'JK制服' },
-    { id: 'maid', name: '女仆装' },
-    { id: 'nurse', name: '护士装' },
-    { id: 'qipao', name: '旗袍' },
-    { id: 'sport', name: '运动装' },
-    { id: 'dress', name: '连衣裙' },
   ];
 
   loadClothesStyles = async () => {
     this.setState({ stylesLoading: true });
+    let list = this.FALLBACK_CLOTHES_STYLES;
     try {
-      const res = await Http('post', '/ai-proxy/ai/clothesStyles', {});
-      if (res.code === 200 && res.data?.list?.length) {
-        this.setState({ styles: res.data.list, stylesLoading: false });
-        return;
+      const res = await fetchClothesStyles();
+      if (Number(res?.code) === 200 && res.data?.list?.length) {
+        list = res.data.list;
       }
     } catch (e) {}
     this.setState({
-      styles: this.FALLBACK_CLOTHES_STYLES,
+      styles: list,
       stylesLoading: false,
+      // 默认选中第一项，避免用户点到上游已坏的风格
+      styleSel: this.state.styleSel || list[0] || null,
     });
   };
 
@@ -227,45 +220,38 @@ class AiTool extends Component {
       return;
     }
 
-    launchImageLibrary(
-      {
+    try {
+      const image = await ImagePicker.openPicker({
         mediaType: 'photo',
-        quality: 0.9,
-        selectionLimit: 1,
-        maxWidth: 2048,
-        maxHeight: 2048,
-      },
-      (response) => {
-        if (response.didCancel) return;
-        if (response.errorCode) {
-          ToastService.warn(
-            response.errorCode === 'permission'
-              ? '请在系统设置中允许访问相册'
-              : response.errorMessage || '无法打开相册'
-          );
-          return;
-        }
-        const asset = response.assets && response.assets[0];
-        const rawUri = asset && (asset.fileCopyUri || asset.uri);
-        const uri = normalizeLocalImageUri(rawUri);
-        if (!uri) {
-          ToastService.warn('未获取到图片，请重试');
-          return;
-        }
-        this.setState({
-          sourceAsset: {
-            ...asset,
-            uri,
-            type: asset.type || 'image/jpeg',
-            fileName:
-              asset.fileName ||
-              asset.name ||
-              `photo_${Date.now()}.jpg`,
-          },
-          resultUrl: '',
-        });
+        compressImageQuality: 0.9,
+        compressImageMaxWidth: 2048,
+        compressImageMaxHeight: 2048,
+        cropping: false,
+      });
+      if (!image) return;
+      const uri = normalizeLocalImageUri(image.path || image.sourceURL);
+      if (!uri) {
+        ToastService.warn('未获取到图片，请重试');
+        return;
       }
-    );
+      this.setState({
+        sourceAsset: {
+          uri,
+          path: image.path,
+          type: image.mime || 'image/jpeg',
+          mime: image.mime,
+          fileName: image.filename || `photo_${Date.now()}.jpg`,
+          width: image.width,
+          height: image.height,
+        },
+        resultUrl: '',
+      });
+    } catch (e) {
+      if (e?.code === 'E_PICKER_CANCELLED' || /cancel/i.test(String(e?.message || ''))) {
+        return;
+      }
+      ToastService.warn(e?.message || '无法打开相册');
+    }
   };
 
   submitFunc = async () => {
@@ -297,34 +283,40 @@ class AiTool extends Component {
     this.setState({ isLoading: true, resultUrl: '' });
     try {
       const sourceUrl = await uploadAiFile(sourceAsset);
-      const body = { ability, sourceUrl };
+      const payload = {
+        ability,
+        sourceUrl,
+        externalUserId: String(this.props.user?._id || this.props.user?.id || ''),
+      };
       if (this.cfg.needScene && sceneSel) {
-        body.sceneName = sceneSel.sceneName || sceneSel.name;
+        payload.sceneName = sceneSel.sceneName || sceneSel.name;
       }
       if (this.cfg.needMethod && styleSel) {
-        body.method = styleSel.id;
+        payload.method = styleSel.id;
       }
-      const res = await Http('post', '/ai-proxy/ai/submit', body);
+      const data = await submitAiDirect(payload);
       this.setState({ isLoading: false });
-      if (res.code === 200 && res.data?.taskId) {
-        const nextYb = res.data.yuanbao ?? res.data.balance;
-        if (nextYb != null) {
-          this.props.setUserInfo({ yuanbao: nextYb });
-        }
-        this.setState({ processing: true });
-        ToastService.success('支付成功，任务处理中...');
-        this.startPoll(res.data.taskId);
-      } else if (res.code === 600 || res.code === 3001) {
+      if (data?.yuanbao != null) {
+        this.props.setUserInfo({ yuanbao: data.yuanbao });
+      }
+      this.setState({ processing: true });
+      ToastService.success('支付成功，任务处理中...');
+      this.startPoll(data.taskId);
+    } catch (e) {
+      this.setState({ isLoading: false });
+      if (e?.code === 600 || e?.code === 3001) {
         const go = await AppDialog.diamondInsufficient({
           message: `本次${this.cfg.title}需要 ${this.cfg.cost} 钻石，充值后就能继续玩。`,
         });
         if (go) this.props.navigation.push('Diamond');
-      } else {
-        ToastService.error(res.message || res.msg || '提交失败');
+        return;
       }
-    } catch (e) {
-      this.setState({ isLoading: false });
-      ToastService.error(e.message || '提交失败');
+      const msg = String(e?.message || '');
+      if (/LoadImageFromURL|inputs\.url is invalid/i.test(msg)) {
+        ToastService.error('提交失败，请稍后再试');
+      } else {
+        ToastService.error(msg || '提交失败');
+      }
     }
   };
 
@@ -340,12 +332,11 @@ class AiTool extends Component {
         return;
       }
       try {
-        const res = await Http('post', '/ai-proxy/ai/task', {
-          task_id: taskId,
-        });
-        if (res.code === 200 && res.data) {
+        const res = await pollAiTask(taskId);
+        if (Number(res?.code) === 200 && res.data) {
           if (res.data.status === 'completed') {
             this.clearPoll();
+            await billFinish(taskId, 'completed');
             if (res.data.resultUrl) {
               this.setState({
                 processing: false,
@@ -359,11 +350,12 @@ class AiTool extends Component {
           } else if (res.data.status === 'failed') {
             this.clearPoll();
             this.setState({ processing: false });
-            const refunded = !!(res.data.localRefunded || res.data.refunded);
+            const finish = await billFinish(taskId, 'failed');
+            const refunded = !!(finish?.data?.localRefunded || res.data.refunded);
             if (refunded) {
               const nextYb =
-                res.data.yuanbao != null
-                  ? res.data.yuanbao
+                finish?.data?.yuanbao != null
+                  ? finish.data.yuanbao
                   : this.getYuanbao() + this.cfg.cost;
               this.props.setUserInfo({ yuanbao: nextYb });
               ToastService.diamond('生成失败，钻石已退回');

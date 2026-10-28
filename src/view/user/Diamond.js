@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { Toast } from 'native-base';
 import { connect } from 'react-redux';
+import Icons from 'react-native-vector-icons/AntDesign';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Header } from '../../component';
 import Http from '../../utils/HttpPost';
 import { fetchFlyludoProducts, payFlyludoProduct } from '../../utils/AlipayPay';
 
@@ -119,19 +120,25 @@ class Diamond extends Component {
     const selected = products[selectedIndex];
 
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFF6EE" />
-        <Header
-          title="钻石充值"
-          leftIcon="left"
-          leftIconColor="#333"
-          onLeftPress={() => this.props.navigation.goBack()}
-          rightText="明细"
-          rightStyle={{ color: '#333', fontSize: 15 }}
-          onRightPress={() => this.props.navigation.navigate('DiamondRecords')}
-          backgroundColor="#FFF6EE"
-          isPurecolor
-        />
+        <View style={styles.nav}>
+          <TouchableOpacity
+            style={styles.navSide}
+            onPress={() => this.props.navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Icons name="left" size={22} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>我的钻石</Text>
+          <TouchableOpacity
+            style={styles.navSideRight}
+            onPress={() => this.props.navigation.navigate('DiamondRecords')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.navRightTxt}>记录</Text>
+          </TouchableOpacity>
+        </View>
 
         {loading ? (
           <ActivityIndicator style={{ marginTop: 40 }} color="#F0A04B" />
@@ -175,13 +182,48 @@ class Diamond extends Component {
             ) : null}
           </>
         )}
-      </View>
+      </SafeAreaView>
     );
   }
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF6EE' },
+  nav: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  navSide: {
+    width: 64,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 6,
+  },
+  navSideRight: {
+    width: 64,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 6,
+  },
+  navTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+  },
+  navRightTxt: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '600',
+  },
   content: { paddingHorizontal: GRID_PAD, paddingTop: 8, paddingBottom: 24 },
   balanceCard: {
     backgroundColor: '#fff',

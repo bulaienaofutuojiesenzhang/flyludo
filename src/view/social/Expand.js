@@ -8,13 +8,13 @@ import {
   Image,
   StatusBar,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import Http from '../../utils/HttpPost';
 import { SC, socialShadow, socialPage } from '../../theme/social';
+import { AppDialog, ToastService } from '../../component';
 
 const TABS = [
   { label: '推荐', type: 0 },
@@ -79,20 +79,23 @@ class Expand extends React.Component {
             if (orderNo) {
               Http('post', '/social/manghe/checkoutWx', { orderNo }).catch(() => {});
             }
-            Alert.alert('抽到了', `成功解锁 ${n} 个微信号`, [
-              { text: '去看看', onPress: () => this.props.navigation.navigate('MyWeFriend') },
-              { text: '好的' },
-            ]);
             if (res.data?.yuanbao != null) {
               this.props.setUserInfo({ yuanbao: res.data.yuanbao });
             }
+            AppDialog.confirm({
+              title: '抽到了',
+              message: `成功解锁 ${n} 个微信号`,
+              cancelText: '好的',
+              confirmText: '去看看',
+            }).then((go) => {
+              if (go) this.props.navigation.navigate('MyWeFriend');
+            });
           } else if (res?.code === 600) {
-            Alert.alert('钻石不足', '请先充值钻石', [
-              { text: '去充值', onPress: () => this.props.navigation.navigate('Diamond') },
-              { text: '取消' },
-            ]);
+            AppDialog.diamondInsufficient().then((go) => {
+              if (go) this.props.navigation.navigate('Diamond');
+            });
           } else {
-            Alert.alert('提示', res?.message || '暂无可抽用户');
+            ToastService.warn(res?.message || '暂无可抽用户');
           }
         })
         .finally(() => this.setState({ drawing: false }));

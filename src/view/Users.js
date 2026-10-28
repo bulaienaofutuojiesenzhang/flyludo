@@ -13,6 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import Icons from 'react-native-vector-icons/AntDesign';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { connect } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FastImage from 'react-native-fast-image';
@@ -20,6 +21,7 @@ import Config from '../config/index';
 import { SC } from '../theme/social';
 import Http from '../utils/HttpPost';
 import { isVipActive, getVipBadgeText } from '../utils/vip';
+import { getAvatarSource } from '../utils/avatar';
 
 import CachedImage from '../component/CachedImage';
 const { width: W } = Dimensions.get('window');
@@ -46,17 +48,6 @@ const TABS = [
   { key: 'say', label: '瞬间', type: 4 },
   { key: 'like', label: '赞过', type: 6 },
 ];
-
-function avatarUri(user) {
-  const a = user?.avatar || user?.myFace;
-  if (!a) {
-    return null;
-  }
-  if (/^https?:\/\//i.test(a)) {
-    return a;
-  }
-  return Config.File_PATH + a;
-}
 
 function two(n) {
   return n < 10 ? `0${n}` : `${n}`;
@@ -162,34 +153,70 @@ class Users extends React.Component {
     this.props.navigation.navigate(route, params);
   };
 
-  /* ---------------- 顶部：紫色星球背景 + 工具栏 ---------------- */
+  /* ---------------- 顶部：紫色短头图 + 右上角会员/设置 ---------------- */
 
   renderHero() {
     const { user, isLogged, insets } = this.props;
-    const top = (insets?.top || StatusBar.currentHeight || 0) + 6;
+    const top = (insets?.top || StatusBar.currentHeight || 0) + 4;
     return (
       <View style={[styles.hero, { paddingTop: top }]}>
         <View style={[styles.orb, styles.orbA]} />
         <View style={[styles.orb, styles.orbB]} />
         <View style={[styles.ring]} />
-        <View style={[styles.orb, styles.orbC]} />
         <View style={styles.topBar}>
-          <View style={{ width: 28 }} />
+          <View style={{ flex: 1 }} />
           <View style={styles.topRight}>
             {isLogged ? (
-              <Pressable style={styles.spacePill} onPress={() => this.go('MySays', { mine: true })}>
-                <Icons name="earth" size={14} color="#fff" />
-                <Text style={styles.spaceTxt}>我的空间</Text>
+              <Pressable style={styles.topIcon} onPress={() => this.go('Recharge')} hitSlop={8}>
+                <MaterialCommunityIcons name="crown" size={24} color="#FFE08A" />
               </Pressable>
             ) : null}
-            <Pressable style={styles.topIcon} onPress={() => this.go('Setting')} hitSlop={8}>
-              <Icons name="setting" size={24} color="#fff" />
+            <Pressable style={[styles.topIcon, { marginLeft: 14 }]} onPress={() => this.go('Setting')} hitSlop={8}>
+              <Icons name="setting" size={22} color="#fff" />
             </Pressable>
           </View>
         </View>
         {isLogged && user?.city ? (
           <Text style={styles.ipTxt}>所在地：{user.city}</Text>
         ) : null}
+      </View>
+    );
+  }
+
+  /* ---------------- 钻石 / 会员专属栏 ---------------- */
+
+  renderAssetBar() {
+    const { user, isLogged } = this.props;
+    if (!isLogged) {
+      return null;
+    }
+    const vip = isVipActive(user);
+    const diamonds = Math.floor(Number(user?.yuanbao) || 0);
+    return (
+      <View style={styles.assetBar}>
+        <Pressable style={styles.assetCell} onPress={() => this.go('Diamond')}>
+          <View style={[styles.assetIcon, { backgroundColor: '#E8F0FE' }]}>
+            <Icons name="pay-circle1" size={18} color="#5B8DEF" />
+          </View>
+          <View style={styles.assetMid}>
+            <Text style={styles.assetLab}>我的钻石</Text>
+            <Text style={styles.assetVal}>{diamonds}</Text>
+          </View>
+          <Icons name="right" size={12} color="#C5C5D0" />
+        </Pressable>
+        <View style={styles.assetSplit} />
+        <Pressable style={styles.assetCell} onPress={() => this.go('Recharge')}>
+          <View style={[styles.assetIcon, { backgroundColor: '#FFF4DB' }]}>
+            <MaterialCommunityIcons name="crown" size={20} color="#E5A21C" />
+          </View>
+          <View style={styles.assetMid}>
+            <Text style={styles.assetLab}>{vip ? '会员中心' : '开通会员'}</Text>
+            <Text style={[styles.assetVal, { color: '#C19769' }]} numberOfLines={1}>
+              {vip ? getVipBadgeText(user) : '解锁特权'}
+            </Text>
+          </View>
+          <Icons name="right" size={12} color="#C5C5D0" />
+        </Pressable>
       </View>
     );
   }
@@ -205,7 +232,7 @@ class Users extends React.Component {
   renderProfile() {
     const { user, isLogged } = this.props;
     const { stats } = this.state;
-    const face = avatarUri(user);
+    const faceSource = getAvatarSource(user);
     const vip = isVipActive(user);
 
     if (!isLogged) {
@@ -234,11 +261,7 @@ class Users extends React.Component {
       <View style={styles.card}>
         <View style={styles.cardTop}>
           <Pressable onPress={() => this.go('MyHome')}>
-            {face ? (
-              <FastImage style={styles.avatar} source={{ uri: face }} />
-            ) : (
-              <Image style={styles.avatar} source={require('../asserts/images/user/plc_user.png')} />
-            )}
+            <FastImage style={styles.avatar} source={faceSource} />
           </Pressable>
           <View style={styles.cardRight}>
             <Pressable style={styles.nameRow} onPress={() => this.go('MyHome')}>
@@ -306,22 +329,20 @@ class Users extends React.Component {
   /* ---------------- 快捷入口：一排图标 ---------------- */
 
   renderEntries() {
-    const { user, isLogged } = this.props;
+    const { isLogged } = this.props;
     if (!isLogged) {
       return null;
     }
-    const vip = isVipActive(user);
     const items = [
-      { icon: 'pay-circle1', color: '#5B8DEF', bg: '#E8F0FE', label: `钻石 ${Math.floor(Number(user?.yuanbao) || 0)}`, route: 'Diamond' },
-      { icon: 'Trophy', color: '#E5A21C', bg: '#FFF4DB', label: vip ? '会员中心' : '开通会员', route: 'Recharge' },
       { icon: 'contacts', color: '#2FBF9B', bg: '#DFF7F0', label: '抽到的微信', route: 'MyWeFriend' },
       { icon: 'gift', color: '#F0668F', bg: '#FFE6EE', label: '盲盒订单', route: 'OrderDetail' },
-      { icon: 'hearto', color: '#9B6BF2', bg: '#EFE6FE', label: '喜欢我', route: 'LoveMe' },
+      { icon: 'earth', color: '#5B8DEF', bg: '#E8F0FE', label: '我的空间', route: 'MySays', params: { mine: true } },
+      { icon: 'sharealt', color: '#FF6C01', bg: '#FFE8D6', label: '邀请有礼', route: 'InviteFriends' },
     ];
     return (
       <View style={[styles.card, styles.entryCard]}>
         {items.map((it) => (
-          <Pressable key={it.route} style={styles.entry} onPress={() => this.go(it.route)}>
+          <Pressable key={it.label} style={styles.entry} onPress={() => this.go(it.route, it.params)}>
             <View style={[styles.entryIcon, { backgroundColor: it.bg }]}>
               <Icons name={it.icon} size={22} color={it.color} />
             </View>
@@ -451,6 +472,7 @@ class Users extends React.Component {
         >
           {this.renderHero()}
           {this.renderProfile()}
+          {this.renderAssetBar()}
           {this.renderEntries()}
           {this.renderMoments()}
           {this.renderService()}
@@ -482,45 +504,32 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F5F6F8' },
   scroll: { paddingBottom: 30 },
 
-  /* 紫色星球头图 */
-  hero: { height: 250, backgroundColor: HERO, overflow: 'hidden' },
+  /* 紫色短头图 */
+  hero: { height: 148, backgroundColor: HERO, overflow: 'hidden' },
   orb: { position: 'absolute', borderRadius: 999 },
-  orbA: { width: 260, height: 260, right: -70, top: -60, backgroundColor: HERO_LIGHT, opacity: 0.55 },
-  orbB: { width: 150, height: 150, left: -50, top: 90, backgroundColor: HERO_DARK, opacity: 0.55 },
-  orbC: { width: 60, height: 60, left: W * 0.42, top: 70, backgroundColor: '#fff', opacity: 0.16 },
+  orbA: { width: 180, height: 180, right: -50, top: -70, backgroundColor: HERO_LIGHT, opacity: 0.5 },
+  orbB: { width: 110, height: 110, left: -36, top: 50, backgroundColor: HERO_DARK, opacity: 0.5 },
   ring: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 6,
-    borderColor: 'rgba(255,255,255,0.22)',
-    left: W * 0.12,
-    top: 36,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    left: W * 0.18,
+    top: 28,
     transform: [{ rotate: '-20deg' }, { scaleY: 0.45 }],
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: PAD + 2,
-    height: 44,
+    height: 40,
   },
   topRight: { flexDirection: 'row', alignItems: 'center' },
-  spacePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.55)',
-    marginRight: 18,
-  },
-  spaceTxt: { marginLeft: 5, color: '#fff', fontSize: 13, fontWeight: '700' },
   topIcon: { padding: 2 },
-  ipTxt: { position: 'absolute', right: PAD + 2, bottom: 76, color: '#fff', fontSize: 11, opacity: 0.9 },
+  ipTxt: { position: 'absolute', right: PAD + 2, bottom: 52, color: '#fff', fontSize: 11, opacity: 0.9 },
 
   /* 资料卡 */
   card: {
@@ -584,6 +593,42 @@ const styles = StyleSheet.create({
   loginRow: { flexDirection: 'row', alignItems: 'center', marginTop: -44 },
   loginPill: { backgroundColor: SC.rose, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, marginTop: 40 },
   loginPillTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  /* 钻石 / 会员栏 */
+  assetBar: {
+    marginTop: 12,
+    marginHorizontal: PAD,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(193,151,105,0.22)',
+  },
+  assetCell: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  assetIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assetMid: { flex: 1, marginLeft: 10, marginRight: 4 },
+  assetLab: { fontSize: 11, color: '#8A8A98', fontWeight: '600' },
+  assetVal: { marginTop: 2, fontSize: 16, fontWeight: '800', color: '#1F1F28' },
+  assetSplit: {
+    width: StyleSheet.hairlineWidth,
+    height: 36,
+    backgroundColor: 'rgba(31,18,24,0.1)',
+  },
 
   /* 快捷入口 */
   entryCard: { marginTop: 12, flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 14 },

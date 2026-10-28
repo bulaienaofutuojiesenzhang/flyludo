@@ -13,7 +13,7 @@ import { connect } from 'react-redux';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
 import { SC, socialShadowLite } from '../../theme/social';
-import { ROMANTIC_STEPS, FITNESS_STEPS } from '../Home';
+import { ROMANTIC_STEPS } from '../Home';
 
 const PAD = 20;
 
@@ -21,10 +21,10 @@ const PAD = 20;
 const MEET = [
   {
     key: 'qiqiu',
-    title: '真心气球',
-    desc: '写一张纸条，放飞一个心事',
+    title: '漂流瓶',
+    desc: '捞起陌生心事，或把你的话送出海',
     route: 'Qiqiu',
-    img: require('../../asserts/images/home/v2_balloon.png'),
+    img: require('../../asserts/images/home/drift_bottle.jpg'),
   },
   {
     key: 'swipe',
@@ -32,13 +32,6 @@ const MEET = [
     desc: '右滑喜欢，左滑略过',
     route: 'Swipe',
     img: require('../../asserts/images/home/v2_hero.png'),
-  },
-  {
-    key: 'treasure',
-    title: '寻宝盲盒',
-    desc: '开一个盲盒，换一份惊喜',
-    route: 'Treasure',
-    img: require('../../asserts/images/home/v2_custom.png'),
   },
   {
     key: 'community',
@@ -51,22 +44,26 @@ const MEET = [
 
 /** 棋盘派对：横滑海报 */
 const GAMES = [
+  { key: 'all', title: '全部棋盘', route: 'GamesHome', img: require('../../asserts/images/home/v2_hero.png') },
+  { key: 'tr', title: '真心话', route: 'TruthMode', img: require('../../asserts/images/home/v2_truth.png') },
+  { key: 'da', title: '大冒险', route: 'DareMode', img: require('../../asserts/images/home/v2_dare.png') },
   { key: 'xq', title: '中国象棋', route: 'XiangqiGame', img: require('../../asserts/images/home/v2_xiangqi.png') },
   { key: 'gm', title: '五子棋', route: 'GomokuGame', img: require('../../asserts/images/home/v2_gomoku.png') },
   { key: 'ot', title: '黑白棋', route: 'OthelloGame', img: require('../../asserts/images/home/v2_othello.png') },
-  { key: 'tr', title: '真心话', route: 'TruthMode', img: require('../../asserts/images/home/v2_truth.png') },
-  { key: 'da', title: '大冒险', route: 'DareMode', img: require('../../asserts/images/home/v2_dare.png') },
-  { key: 'all', title: '全部棋盘', route: 'GamesHome', img: require('../../asserts/images/home/v2_hero.png') },
 ];
 
-/** 更多：轻量文字行 */
+/** 更多：与扩列同款图文行 */
 const MORE = [
-  { key: 'anon', title: '匿名墙', desc: '说点不想署名的话', icon: 'eyeo', route: 'AnonymousWall' },
-  { key: 'found', title: '创作棋盘', desc: '自己出题，邀请好友来玩', icon: 'edit', route: 'Found' },
-  { key: 'baibao', title: '百宝箱', desc: '小工具与福利', icon: 'inbox', route: 'BaibaoPage' },
+  {
+    key: 'baibao',
+    title: '百宝箱',
+    desc: '小工具与福利',
+    route: 'BaibaoPage',
+    img: require('../../asserts/images/home/v2_box.png'),
+  },
 ];
 
-const NEED_LOGIN = ['Swipe', 'AnonymousWall', 'Qiqiu', 'Treasure', 'DynamicPage', 'BaibaoPage'];
+const NEED_LOGIN = ['Swipe', 'Qiqiu', 'DynamicPage', 'BaibaoPage'];
 
 class Play extends React.Component {
   componentDidMount() {
@@ -113,15 +110,12 @@ class Play extends React.Component {
     });
   };
 
-  /** 情侣健身飞行棋 */
-  startFitness = () => {
-    this.props.navigation.push('CoupleFlyingChess', {
-      gameData: {
-        title: '情侣健身飞行棋',
-        description: '和TA一起挑战健身目标',
-        playerCount: 2,
-        steps: FITNESS_STEPS,
-      },
+  /** 真心话大冒险 */
+  startTruthOrDare = () => {
+    this.props.navigation.push('TruthOrDareGame', {
+      mode: 'both',
+      truths: this.props.truths || [],
+      dares: this.props.dares || [],
     });
   };
 
@@ -144,20 +138,20 @@ class Play extends React.Component {
         </View>
       </Pressable>
       <View style={styles.tileRow}>
-        <Pressable style={[styles.tile, socialShadowLite]} onPress={this.startFitness}>
-          <Image source={require('../../asserts/images/home/v2_fitness.png')} style={styles.tileImg} />
+        <Pressable style={[styles.tile, socialShadowLite]} onPress={this.startTruthOrDare}>
+          <Image source={require('../../asserts/images/home/v2_truth.png')} style={styles.tileImg} />
           <View style={styles.tileScrim} pointerEvents="none" />
           <View style={styles.tileText} pointerEvents="none">
-            <Text style={styles.tileTitle}>健身飞行棋</Text>
-            <Text style={styles.tileDesc}>边玩边动</Text>
+            <Text style={styles.tileTitle}>真心话大冒险</Text>
+            <Text style={styles.tileDesc}>抽题当面玩</Text>
           </View>
         </Pressable>
         <Pressable style={[styles.tile, socialShadowLite, { marginRight: 0 }]} onPress={this.goCustom}>
           <Image source={require('../../asserts/images/home/v2_custom.png')} style={styles.tileImg} />
           <View style={styles.tileScrim} pointerEvents="none" />
           <View style={styles.tileText} pointerEvents="none">
-            <Text style={styles.tileTitle}>自定义棋盘</Text>
-            <Text style={styles.tileDesc}>写专属格子</Text>
+            <Text style={styles.tileTitle}>创建玩法</Text>
+            <Text style={styles.tileDesc}>飞行棋 · 真心话大冒险</Text>
           </View>
         </Pressable>
       </View>
@@ -208,9 +202,7 @@ class Play extends React.Component {
           style={[styles.row, i === MORE.length - 1 && styles.rowLast]}
           onPress={() => this.go(m.route)}
         >
-          <View style={styles.iconDot}>
-            <Icons name={m.icon} size={18} color={SC.rose} />
-          </View>
+          <Image source={m.img} style={styles.thumb} />
           <View style={styles.rowMid}>
             <Text style={styles.rowTitle}>{m.title}</Text>
             <Text style={styles.rowDesc} numberOfLines={1}>
@@ -283,7 +275,7 @@ const styles = StyleSheet.create({
   },
   heroGoTxt: { fontSize: 13, fontWeight: '800', color: SC.rose },
 
-  /* 健身飞行棋 / 自定义棋盘 两个小图块 */
+  /* 真心话大冒险 / 自定义棋盘 两个小图块 */
   tileRow: { flexDirection: 'row', paddingHorizontal: PAD, marginTop: 12 },
   tile: {
     flex: 1,
@@ -331,14 +323,6 @@ const styles = StyleSheet.create({
   },
   rowLast: { borderBottomWidth: 0 },
   thumb: { width: 54, height: 54, borderRadius: 16, backgroundColor: SC.card },
-  iconDot: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: SC.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   rowMid: { flex: 1, marginLeft: 14, marginRight: 8 },
   rowTitle: { fontSize: 15, fontWeight: '800', color: SC.ink },
   rowDesc: { marginTop: 4, fontSize: 12, color: SC.mute },
@@ -362,6 +346,10 @@ const styles = StyleSheet.create({
 });
 
 export default connect(
-  (s) => ({ user: s.user }),
+  (s) => ({
+    user: s.user,
+    truths: s.game?.truths,
+    dares: s.game?.dares,
+  }),
   (d) => ({ setUserInfo: (p) => d({ type: 'SET_USERINFO', payload: p }) })
 )(Play);

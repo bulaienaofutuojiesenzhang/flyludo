@@ -10,6 +10,7 @@ import {
   Dimensions,
   StatusBar,
   Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icons from 'react-native-vector-icons/AntDesign';
@@ -19,6 +20,28 @@ import { ToastService } from '../../component';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BOARD_WIDTH = SCREEN_WIDTH;
 const BOARD_HEIGHT = SCREEN_HEIGHT;
+/** 顶部标题栏（状态栏 + 返回/标题/规则）占用高度，避免挡住棋盘顶行 */
+const HEADER_RESERVE =
+  Platform.OS === 'ios'
+    ? 102
+    : (StatusBar.currentHeight || 24) + 56;
+const BOTTOM_RESERVE = 20;
+
+function getBoardMetrics() {
+  const padding = 5;
+  const cols = 8;
+  const rows = 14;
+  const availableWidth = SCREEN_WIDTH - padding * 2;
+  const availableHeight = SCREEN_HEIGHT - HEADER_RESERVE - BOTTOM_RESERVE - padding * 2;
+  const squareSize = Math.min(availableWidth / cols, availableHeight / rows);
+  const boardWidth = cols * squareSize;
+  const boardHeight = rows * squareSize;
+  const offsetX = (SCREEN_WIDTH - boardWidth) / 2;
+  const offsetY =
+    HEADER_RESERVE +
+    Math.max(0, (SCREEN_HEIGHT - HEADER_RESERVE - BOTTOM_RESERVE - boardHeight) / 2);
+  return { padding, cols, rows, squareSize, offsetX, offsetY };
+}
 
 // 骰子动画组件
 class DiceAnimation extends React.Component {
@@ -110,25 +133,10 @@ class DiceAnimation extends React.Component {
 }
 
 // 生成动态步数的棋盘路径坐标（U形路径）
-// 布局不变，但只生成到指定步数
+// 布局不变，但只生成到指定步数；整体下移避开顶部标题
 const generateBoardPath = (maxSteps = 55) => {
   const path = [];
-  const padding = 5;
-  const cols = 8;
-  const rows = 14;
-  
-  // 计算格子大小
-  const availableWidth = SCREEN_WIDTH - padding * 2;
-  const availableHeight = SCREEN_HEIGHT - padding * 2;
-  const squareSizeByWidth = availableWidth / cols;
-  const squareSizeByHeight = availableHeight / rows;
-  const squareSize = Math.min(squareSizeByWidth, squareSizeByHeight);
-  
-  // 计算实际棋盘尺寸并居中
-  const boardWidth = cols * squareSize;
-  const boardHeight = rows * squareSize;
-  const offsetX = (SCREEN_WIDTH - boardWidth) / 2;
-  const offsetY = (SCREEN_HEIGHT - boardHeight) / 2;
+  const { cols, squareSize, offsetX, offsetY } = getBoardMetrics();
   
   // 完整的55步路径定义（算法和位置不变）
   const fullPath = [];
@@ -599,16 +607,7 @@ class CoupleFlyingChess extends React.Component {
     // 格子颜色（根据图片描述，使用粉色、紫色、浅蓝色交替）
     const colors = ['#FFB3D9', '#DDA0DD', '#B0E0E6'];
     const colorIndex = step % 3;
-    
-    // 动态计算格子大小 - 与generateBoardPath保持一致
-    const padding = 5;
-    const cols = 8;
-    const rows = 14;
-    const availableWidth = SCREEN_WIDTH - padding * 2;
-    const availableHeight = SCREEN_HEIGHT - padding * 2;
-    const squareSizeByWidth = availableWidth / cols;
-    const squareSizeByHeight = availableHeight / rows;
-    const squareSize = Math.min(squareSizeByWidth, squareSizeByHeight);
+    const { squareSize } = getBoardMetrics();
 
     return (
       <TouchableOpacity

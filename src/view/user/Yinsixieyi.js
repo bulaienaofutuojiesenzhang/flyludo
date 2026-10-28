@@ -10,7 +10,7 @@ export default class Yinsixieyi extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            thislink: "http://tongchengyouyue.com/tongchengyouyue/privacy",
+            thislink: "http://daoyikeji.com/flyingchess/tongchengyouyue/privacy",
             isLoading: false,
         }
     }
